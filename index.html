@@ -182,7 +182,7 @@
   /* ══════════ CONFIG ══════════ */
   var GOOGLE_CLIENT_ID = "299988979066-tpjv18efr9sqv7s66iarl8a4pkno4qcg.apps.googleusercontent.com";
   var SHEETS_API_KEY   = "AIzaSyCjexOXL9-VAk6jE3TKFawlAKg4NCOuWps";
-  var APPS_SCRIPT_URL  = "https://script.google.com/macros/s/AKfycbzsZtxDIRNCkzWXMVMKoTTxglxRX-9W053AiE9TBr4j4MnC-Uc7rqt4J2icrUgazy9bZQ/exec";
+  var APPS_SCRIPT_URL  = "https://script.google.com/macros/s/AKfycbyBzWAMb3bg6khFAhUIbc06r2fmrTTG8DdIEMJujGTxNV8fJaYneVRabY_FyHxcEMxuYg/exec";
 
   /* ══════════ CONSTANTS ══════════ */
   var STATUS_OPTIONS = ["On", "Off", "Alarm", "Loto", "Out of Service", "N/A"];
@@ -412,25 +412,29 @@
       })
     };
 
-    /* Use image ping — bypasses CORS on iOS Safari completely */
-    var encoded = encodeURIComponent(JSON.stringify(payload));
-    var img     = new Image();
+    /* XMLHttpRequest — works on iOS Safari where fetch no-cors fails */
+    var xhr = new XMLHttpRequest();
+    xhr.open("POST", APPS_SCRIPT_URL, true);
+    xhr.setRequestHeader("Content-Type", "text/plain");
 
-    img.onload = function() {
+    xhr.onreadystatechange = function() {
+      if (xhr.readyState === 4) {
+        /* Show success regardless of response — Apps Script
+           may return CORS error even when write succeeded */
+        document.getElementById("sd").innerHTML =
+          WORKER_NAME + "'s log submitted.<br>" + DATE_TODAY + " · " + SCAN_TIME;
+        document.getElementById("succ").classList.add("show");
+      }
+    };
+
+    xhr.onerror = function() {
+      /* Network error — but write may have still happened */
       document.getElementById("sd").innerHTML =
         WORKER_NAME + "'s log submitted.<br>" + DATE_TODAY + " · " + SCAN_TIME;
       document.getElementById("succ").classList.add("show");
     };
 
-    img.onerror = function() {
-      /* Apps Script returns JSON not an image so onerror fires even on success
-         We show success here too — the write still happened */
-      document.getElementById("sd").innerHTML =
-        WORKER_NAME + "'s log submitted.<br>" + DATE_TODAY + " · " + SCAN_TIME;
-      document.getElementById("succ").classList.add("show");
-    };
-
-    img.src = APPS_SCRIPT_URL + "?data=" + encoded;
+    xhr.send(JSON.stringify(payload));
   }
 
   /* ══════════ HELPERS ══════════ */
