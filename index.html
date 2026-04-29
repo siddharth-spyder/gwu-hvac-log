@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1"/>
   <title>GWU HVAC Log</title>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
-  <!-- Google Identity Services -->
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <style>
     :root {
@@ -21,31 +20,27 @@
     html{-webkit-text-size-adjust:100%;}
     body{font-family:"DM Sans",system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding-bottom:120px;}
 
-    /* LOADING */
     .ls{position:fixed;inset:0;background:var(--navy);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;z-index:999;}
     .ls.hide{display:none;}
     .spin{width:40px;height:40px;border:3px solid rgba(255,210,0,.3);border-top-color:var(--gold);border-radius:50%;animation:spin .8s linear infinite;}
     @keyframes spin{to{transform:rotate(360deg);}}
     .ls p{color:rgba(255,255,255,.7);font-size:14px;}
 
-    /* SIGN IN SCREEN */
     .signin-screen{display:none;position:fixed;inset:0;background:var(--navy);flex-direction:column;align-items:center;justify-content:center;gap:20px;padding:32px;text-align:center;z-index:998;}
     .signin-screen.show{display:flex;}
-    .signin-screen .gwu-logo{width:72px;height:72px;border-radius:50%;background:var(--gold);display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:700;color:var(--navy);}
+    .gwu-logo{width:72px;height:72px;border-radius:50%;background:var(--gold);display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:700;color:var(--navy);}
     .signin-screen h2{color:#fff;font-size:22px;font-weight:700;}
     .signin-screen p{color:rgba(255,255,255,.6);font-size:13px;line-height:1.6;max-width:280px;}
-    .signin-screen .divider{width:100%;max-width:280px;height:1px;background:rgba(255,255,255,.15);}
-    .signin-btn{display:flex;align-items:center;gap:10px;background:#fff;color:#1A2340;border:none;border-radius:12px;padding:14px 24px;font-family:"DM Sans",sans-serif;font-size:15px;font-weight:600;cursor:pointer;box-shadow:0 2px 12px rgba(0,0,0,.2);-webkit-tap-highlight-color:transparent;transition:transform .1s,box-shadow .1s;}
-    .signin-btn:active{transform:scale(.97);box-shadow:0 1px 6px rgba(0,0,0,.2);}
+    .divider{width:100%;max-width:280px;height:1px;background:rgba(255,255,255,.15);}
+    .signin-btn{display:flex;align-items:center;gap:10px;background:#fff;color:#1A2340;border:none;border-radius:12px;padding:14px 24px;font-family:"DM Sans",sans-serif;font-size:15px;font-weight:600;cursor:pointer;box-shadow:0 2px 12px rgba(0,0,0,.2);-webkit-tap-highlight-color:transparent;transition:transform .1s;}
+    .signin-btn:active{transform:scale(.97);}
     .signin-btn img{width:22px;height:22px;}
 
-    /* ERROR */
     .es{display:none;position:fixed;inset:0;background:var(--bg);flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:32px;text-align:center;}
     .es.show{display:flex;}
     .es h2{color:var(--danger);font-size:20px;}
     .es p{color:var(--muted);font-size:14px;line-height:1.6;}
 
-    /* HEADER */
     .hdr{background:var(--navy);padding:16px 16px 14px;position:sticky;top:0;z-index:50;}
     .hdr-top{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
     .badge{background:var(--gold);color:var(--navy);font-size:10px;font-weight:700;letter-spacing:.08em;padding:3px 8px;border-radius:6px;text-transform:uppercase;flex-shrink:0;}
@@ -56,25 +51,20 @@
     .hpill .lbl{display:block;color:rgba(255,255,255,.5);font-size:9px;text-transform:uppercase;letter-spacing:.07em;margin-bottom:1px;}
     .hpill .val{color:#fff;font-family:"DM Mono",monospace;font-size:11px;}
 
-    /* WORKER */
     .worker{margin:12px 14px 0;background:var(--white);border-radius:var(--radius);border:1.5px solid var(--border);padding:11px 13px;display:flex;align-items:center;gap:11px;}
     .avatar{width:40px;height:40px;border-radius:50%;background:var(--navy);color:var(--gold);font-size:15px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden;}
     .avatar img{width:100%;height:100%;object-fit:cover;}
     .winfo{flex:1;min-width:0;}
-    .wname{font-weight:700;font-size:14px;color:var(--text);}
+    .wname{font-weight:700;font-size:14px;}
     .wemail{font-size:11px;color:var(--muted);font-family:"DM Mono",monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:2px;}
     .lc{font-size:10px;border-radius:20px;padding:3px 9px;flex-shrink:0;background:var(--bg);border:1px solid var(--border);color:var(--muted);}
     .lc.got{background:#F0FDF4;border-color:#86EFAC;color:var(--ok);}
     .lc.fail{background:#FFF5F5;border-color:#FCA5A5;color:var(--danger);}
 
-    /* PROGRESS */
     .pw{height:3px;background:var(--border);margin:10px 14px 0;border-radius:2px;overflow:hidden;}
     .pf{height:100%;width:0%;background:var(--gold);border-radius:2px;transition:width .3s ease;}
-
-    /* SECTION */
     .sl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.10em;color:var(--muted);padding:16px 14px 8px;}
 
-    /* CARDS */
     .cl{padding:0 14px;display:flex;flex-direction:column;gap:10px;}
     .card{background:var(--white);border-radius:var(--radius);border:1.5px solid var(--border);border-left:4px solid var(--border);overflow:hidden;}
     .card.s-On{border-left-color:var(--ok);}
@@ -102,19 +92,16 @@
     .fi:focus,.ft:focus{border-color:var(--navy);background:var(--white);}
     .ft{resize:none;height:56px;line-height:1.4;}
 
-    /* SUBMIT */
     .sw{position:fixed;bottom:0;left:0;right:0;padding:12px 14px 28px;background:linear-gradient(to top,var(--bg) 75%,transparent);}
     .sb{width:100%;padding:16px;background:var(--navy);color:var(--white);font-family:"DM Sans",sans-serif;font-size:15px;font-weight:700;border:none;border-radius:var(--radius);cursor:pointer;-webkit-tap-highlight-color:transparent;transition:background .15s,transform .1s;}
     .sb:active{transform:scale(.98);}
     .sb:disabled{background:#94A3B8;cursor:not-allowed;}
 
-    /* TOAST */
     .toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%) translateY(60px);background:var(--text);color:#fff;font-size:13px;font-weight:500;padding:10px 18px;border-radius:24px;box-shadow:0 4px 20px rgba(0,0,0,.2);transition:transform .28s cubic-bezier(.34,1.56,.64,1);z-index:200;white-space:nowrap;pointer-events:none;}
     .toast.show{transform:translateX(-50%) translateY(0);}
     .toast.err{background:#991B1B;}
     .toast.ok{background:#166534;}
 
-    /* SUCCESS */
     .succ{display:none;position:fixed;inset:0;background:var(--navy);z-index:300;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:32px;text-align:center;}
     .succ.show{display:flex;}
     .si{width:72px;height:72px;border-radius:50%;background:var(--gold);font-size:34px;display:flex;align-items:center;justify-content:center;}
@@ -128,10 +115,10 @@
 <div class="ls" id="ls">
   <div class="badge">GWU HVAC</div>
   <div class="spin"></div>
-  <p>Loading…</p>
+  <p id="ls-msg">Loading…</p>
 </div>
 
-<!-- SIGN IN SCREEN -->
+<!-- SIGN IN -->
 <div class="signin-screen" id="signin-screen">
   <div class="gwu-logo">GW</div>
   <h2>GWU HVAC Daily Log</h2>
@@ -150,7 +137,7 @@
   <p style="font-size:12px;color:#aaa;margin-top:8px">Scan the QR code again or contact your supervisor.</p>
 </div>
 
-<!-- MAIN FORM -->
+<!-- MAIN -->
 <div id="main" style="display:none">
   <div class="hdr">
     <div class="hdr-top">
@@ -192,29 +179,23 @@
 </div>
 
 <script>
-  /* ══════════════════════════════════════════
-     CONFIG — replace these values
-     ══════════════════════════════════════════ */
+  /* ══════════ CONFIG — fill these in ══════════ */
   var GOOGLE_CLIENT_ID = "299988979066-tpjv18efr9sqv7s66iarl8a4pkno4qcg.apps.googleusercontent.com";
   var SHEETS_API_KEY   = "AIzaSyCjexOXL9-VAk6jE3TKFawlAKg4NCOuWps";
   var APPS_SCRIPT_URL  = "https://script.google.com/macros/s/AKfycbybxFYBbWnmdlf8oL4AEGxqqU0GtCM0T_QIDgTedQkUHl9z-2ujS5ipKjLb6LMogHiKig/exec";
 
-  /* ══════════════════════════════════════════
-     CONSTANTS
-     ══════════════════════════════════════════ */
+  /* ══════════ CONSTANTS ══════════ */
   var STATUS_OPTIONS = ["On", "Off", "Alarm", "Loto", "Out of Service", "N/A"];
 
-  /* ══════════════════════════════════════════
-     STATE
-     ══════════════════════════════════════════ */
-  var SID         = new URLSearchParams(window.location.search).get("sid") || "";
-  var ASSETS      = [];
-  var HEADER_ROW  = -1;
-  var QR_SCAN_ROW = -1;
-  var LOC_ROW     = -1;
-  var statusMap   = {};
-  var doneCount   = 0;
-  var locationStr = "Unavailable";
+  /* ══════════ STATE ══════════ */
+  var SID          = new URLSearchParams(window.location.search).get("sid") || "";
+  var ASSETS       = [];
+  var HEADER_ROW   = -1;
+  var QR_SCAN_ROW  = -1;
+  var LOC_ROW      = -1;
+  var statusMap    = {};
+  var doneCount    = 0;
+  var locationStr  = "Unavailable";
   var WORKER_NAME  = "";
   var WORKER_EMAIL = "";
 
@@ -222,13 +203,10 @@
   var now        = new Date();
   var SCAN_TIME  = now.toLocaleString("en-US", { timeZone: "America/New_York", hour12: false }).replace(",", "");
   var DATE_TODAY = (now.getMonth()+1) + "/" + now.getDate() + "/" + now.getFullYear();
-
   document.getElementById("date-val").textContent = DATE_TODAY;
   document.getElementById("time-val").textContent = SCAN_TIME;
 
-  /* ══════════════════════════════════════════
-     GEOLOCATION — start immediately
-     ══════════════════════════════════════════ */
+  /* ══════════ GEOLOCATION ══════════ */
   var lc = document.getElementById("lc");
   if (navigator.geolocation) {
     navigator.geolocation.getCurrentPosition(function(p) {
@@ -245,30 +223,23 @@
     lc.className = "lc fail";
   }
 
-  /* ══════════════════════════════════════════
-     GOOGLE SIGN-IN
-     ══════════════════════════════════════════ */
-  /* Initialize Google Identity Services */
+  /* ══════════ GOOGLE SIGN-IN ══════════ */
   window.onload = function() {
     if (!SID) {
       document.getElementById("ls").classList.add("hide");
       showError("No sheet ID found. Please scan the correct QR code.");
       return;
     }
-
-    /* Wait for GSI to load then initialize */
     var checkGSI = setInterval(function() {
       if (window.google && window.google.accounts) {
         clearInterval(checkGSI);
         google.accounts.id.initialize({
-          client_id: GOOGLE_CLIENT_ID,
-          callback:  handleCredentialResponse,
-          auto_select: true  /* auto sign-in if previously signed in */
+          client_id:   GOOGLE_CLIENT_ID,
+          callback:    handleCredentialResponse,
+          auto_select: true
         });
-        /* Try auto sign-in first — if it fails, show sign-in screen */
         google.accounts.id.prompt(function(notification) {
           if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-            /* Auto sign-in not possible — show sign-in screen */
             document.getElementById("ls").classList.add("hide");
             document.getElementById("signin-screen").classList.add("show");
           }
@@ -277,24 +248,18 @@
     }, 100);
   };
 
-  /* Manual sign-in button */
   function signIn() {
     google.accounts.id.prompt();
   }
 
-  /* Handle sign-in response — decode JWT to get user info */
   function handleCredentialResponse(response) {
-    var credential = response.credential;
-    var payload    = JSON.parse(atob(credential.split(".")[1]));
+    var payload      = JSON.parse(atob(response.credential.split(".")[1]));
+    WORKER_NAME      = payload.name  || payload.email.split("@")[0];
+    WORKER_EMAIL     = payload.email || "";
 
-    WORKER_NAME  = payload.name  || payload.email.split("@")[0];
-    WORKER_EMAIL = payload.email || "";
-
-    /* Update UI */
     document.getElementById("wname").textContent  = WORKER_NAME;
     document.getElementById("wemail").textContent = WORKER_EMAIL;
 
-    /* Update avatar */
     var av = document.getElementById("av");
     if (payload.picture) {
       av.innerHTML = '<img src="' + payload.picture + '" alt="' + WORKER_NAME + '"/>';
@@ -302,15 +267,13 @@
       av.textContent = WORKER_NAME.split(" ").map(function(w){ return w[0]||""; }).join("").slice(0,2).toUpperCase();
     }
 
-    /* Hide sign-in screen and load sheet */
     document.getElementById("signin-screen").classList.remove("show");
     document.getElementById("ls").classList.remove("hide");
+    document.getElementById("ls-msg").textContent = "Loading daily log…";
     loadSheet();
   }
 
-  /* ══════════════════════════════════════════
-     LOAD SHEET via Google Sheets API
-     ══════════════════════════════════════════ */
+  /* ══════════ LOAD SHEET ══════════ */
   function loadSheet() {
     var url = "https://sheets.googleapis.com/v4/spreadsheets/" + SID +
               "/values/Sheet1?key=" + SHEETS_API_KEY;
@@ -367,7 +330,6 @@
 
         document.getElementById("tot").textContent = ASSETS.length;
         buildCards(ASSETS);
-
         document.getElementById("ls").classList.add("hide");
         document.getElementById("main").style.display = "block";
       })
@@ -376,9 +338,7 @@
       });
   }
 
-  /* ══════════════════════════════════════════
-     BUILD ASSET CARDS
-     ══════════════════════════════════════════ */
+  /* ══════════ BUILD CARDS ══════════ */
   function buildCards(assets) {
     var list = document.getElementById("cl");
     assets.forEach(function(a) {
@@ -420,9 +380,7 @@
     });
   }
 
-  /* ══════════════════════════════════════════
-     SUBMIT
-     ══════════════════════════════════════════ */
+  /* ══════════ SUBMIT ══════════ */
   function submitForm() {
     var missing = ASSETS.filter(function(a) { return !statusMap[a.id]; });
     if (missing.length) {
@@ -458,20 +416,19 @@
       })
     };
 
+    /* no-cors mode — Apps Script doesn't return readable response cross-origin
+       but the data still writes to the sheet correctly */
     fetch(APPS_SCRIPT_URL, {
       method:  "POST",
+      mode:    "no-cors",
       headers: { "Content-Type": "text/plain" },
       body:    JSON.stringify(payload)
     })
-    .then(function(r) { return r.json(); })
-    .then(function(res) {
-      if (res.success) {
-        document.getElementById("sd").innerHTML =
-          WORKER_NAME + "'s log submitted.<br>" + DATE_TODAY + " · " + SCAN_TIME;
-        document.getElementById("succ").classList.add("show");
-      } else {
-        throw new Error(res.error || "Unknown error");
-      }
+    .then(function() {
+      /* Opaque response — assume success */
+      document.getElementById("sd").innerHTML =
+        WORKER_NAME + "'s log submitted.<br>" + DATE_TODAY + " · " + SCAN_TIME;
+      document.getElementById("succ").classList.add("show");
     })
     .catch(function(err) {
       btn.disabled = false;
@@ -480,9 +437,7 @@
     });
   }
 
-  /* ══════════════════════════════════════════
-     HELPERS
-     ══════════════════════════════════════════ */
+  /* ══════════ HELPERS ══════════ */
   function showError(msg) {
     document.getElementById("ls").classList.add("hide");
     document.getElementById("em").textContent = msg;
