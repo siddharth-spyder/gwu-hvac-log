@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1"/>
   <title>GWU HVAC Log</title>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+  <!-- Load GSI client — provides both google.accounts.id AND google.accounts.oauth2 -->
+  <script src="https://accounts.google.com/gsi/client"></script>
   <style>
     :root {
       --navy:#002147;--gold:#FFD200;--white:#fff;--bg:#F2F4F8;
@@ -33,7 +35,7 @@
     .divider{width:100%;max-width:280px;height:1px;background:rgba(255,255,255,.15);}
     .signin-btn{display:flex;align-items:center;gap:10px;background:#fff;color:#1A2340;border:none;border-radius:12px;padding:14px 24px;font-family:"DM Sans",sans-serif;font-size:15px;font-weight:600;cursor:pointer;box-shadow:0 2px 12px rgba(0,0,0,.2);-webkit-tap-highlight-color:transparent;transition:transform .1s;}
     .signin-btn:active{transform:scale(.97);}
-    .signin-btn svg{width:22px;height:22px;}
+    .signin-btn svg{width:22px;height:22px;flex-shrink:0;}
 
     .es{display:none;position:fixed;inset:0;background:var(--bg);flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:32px;text-align:center;}
     .es.show{display:flex;}
@@ -192,6 +194,11 @@
   /* ══════════ CONSTANTS ══════════ */
   var STATUS_OPTIONS = ["On", "Off", "Alarm", "Loto", "Out of Service", "N/A"];
   var SHEETS_BASE    = "https://sheets.googleapis.com/v4/spreadsheets";
+  var SCOPES         = [
+    "https://www.googleapis.com/auth/spreadsheets",
+    "https://www.googleapis.com/auth/userinfo.profile",
+    "https://www.googleapis.com/auth/userinfo.email"
+  ].join(" ");
 
   /* ══════════ STATE ══════════ */
   var SID          = new URLSearchParams(window.location.search).get("sid") || "";
@@ -205,6 +212,7 @@
   var WORKER_NAME  = "";
   var WORKER_EMAIL = "";
   var ACCESS_TOKEN = "";
+  var tokenClient;
 
   /* Timestamps */
   var now        = new Date();
@@ -230,43 +238,41 @@
     lc.className = "lc fail";
   }
 
-  /* ══════════ GOOGLE OAUTH2 SIGN-IN ══════════
-     Uses google.accounts.oauth2 to get an access token
-     with Sheets write scope — no Apps Script needed */
-  var tokenClient;
-
-  window.onload = function() {
+  /* ══════════ INIT — wait for GSI to be ready ══════════ */
+  function initGSI() {
     if (!SID) {
       document.getElementById("ls").classList.add("hide");
       showError("No sheet ID found. Please scan the correct QR code.");
       return;
     }
 
-    /* Load Google Identity Services */
-    var checkGSI = setInterval(function() {
-      if (window.google && window.google.accounts && window.google.accounts.oauth2) {
-        clearInterval(checkGSI);
+    try {
+      tokenClient = google.accounts.oauth2.initTokenClient({
+        client_id: GOOGLE_CLIENT_ID,
+        scope:     SCOPES,
+        callback:  handleTokenResponse
+      });
 
-        tokenClient = google.accounts.oauth2.initTokenClient({
-          client_id: GOOGLE_CLIENT_ID,
-          scope: [
-            "https://www.googleapis.com/auth/spreadsheets",
-            "https://www.googleapis.com/auth/userinfo.profile",
-            "https://www.googleapis.com/auth/userinfo.email"
-          ].join(" "),
-          callback: handleTokenResponse
-        });
+      document.getElementById("ls").classList.add("hide");
+      document.getElementById("signin-screen").classList.add("show");
 
-        document.getElementById("ls").classList.add("hide");
-        document.getElementById("signin-screen").classList.add("show");
+      document.getElementById("signin-btn").onclick = function() {
+        tokenClient.requestAccessToken({ prompt: "consent" });
+      };
 
-        document.getElementById("signin-btn").onclick = function() {
-          tokenClient.requestAccessToken({ prompt: "consent" });
-        };
-      }
-    }, 100);
-  };
+    } catch(err) {
+      /* oauth2 not ready yet — retry */
+      setTimeout(initGSI, 200);
+    }
+  }
 
+  /* GSI loads synchronously (no async/defer) so it's ready by DOMContentLoaded */
+  document.addEventListener("DOMContentLoaded", function() {
+    /* Small delay to ensure GSI fully initializes */
+    setTimeout(initGSI, 300);
+  });
+
+  /* ══════════ HANDLE TOKEN RESPONSE ══════════ */
   function handleTokenResponse(tokenResponse) {
     if (tokenResponse.error) {
       showError("Sign-in failed: " + tokenResponse.error);
@@ -275,13 +281,13 @@
 
     ACCESS_TOKEN = tokenResponse.access_token;
 
-    /* Get user info */
+    /* Get user info using the access token */
     fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
       headers: { "Authorization": "Bearer " + ACCESS_TOKEN }
     })
     .then(function(r) { return r.json(); })
     .then(function(info) {
-      WORKER_NAME  = info.name  || info.email.split("@")[0];
+      WORKER_NAME  = info.name  || (info.email ? info.email.split("@")[0] : "Unknown");
       WORKER_EMAIL = info.email || "";
 
       document.getElementById("wname").textContent  = WORKER_NAME;
@@ -406,6 +412,31 @@
     });
   }
 
+  /* ══════════ SHEETS API HELPERS ══════════ */
+  function sheetsUpdate(sheetId, range, values) {
+    return fetch(SHEETS_BASE + "/" + sheetId + "/values/" + encodeURIComponent(range) +
+                 "?valueInputOption=RAW", {
+      method:  "PUT",
+      headers: {
+        "Authorization": "Bearer " + ACCESS_TOKEN,
+        "Content-Type":  "application/json"
+      },
+      body: JSON.stringify({ range: range, majorDimension: "ROWS", values: values })
+    }).then(function(r) { return r.json(); });
+  }
+
+  function sheetsAppend(sheetId, range, values) {
+    return fetch(SHEETS_BASE + "/" + sheetId + "/values/" + encodeURIComponent(range) +
+                 ":append?valueInputOption=RAW&insertDataOption=INSERT_ROWS", {
+      method:  "POST",
+      headers: {
+        "Authorization": "Bearer " + ACCESS_TOKEN,
+        "Content-Type":  "application/json"
+      },
+      body: JSON.stringify({ range: range, majorDimension: "ROWS", values: values })
+    }).then(function(r) { return r.json(); });
+  }
+
   /* ══════════ REVERSE GEOCODE ══════════ */
   function reverseGeocode(coords) {
     return fetch("https://maps.googleapis.com/maps/api/geocode/json?latlng=" +
@@ -418,29 +449,6 @@
         return coords;
       })
       .catch(function() { return coords; });
-  }
-
-  /* ══════════ WRITE TO SHEET via Sheets API ══════════ */
-  function sheetsUpdate(sheetId, range, values) {
-    return fetch(SHEETS_BASE + "/" + sheetId + "/values/" + range + "?valueInputOption=RAW", {
-      method:  "PUT",
-      headers: {
-        "Authorization": "Bearer " + ACCESS_TOKEN,
-        "Content-Type":  "application/json"
-      },
-      body: JSON.stringify({ range: range, majorDimension: "ROWS", values: values })
-    }).then(function(r) { return r.json(); });
-  }
-
-  function sheetsAppend(sheetId, range, values) {
-    return fetch(SHEETS_BASE + "/" + sheetId + "/values/" + range + ":append?valueInputOption=RAW&insertDataOption=INSERT_ROWS", {
-      method:  "POST",
-      headers: {
-        "Authorization": "Bearer " + ACCESS_TOKEN,
-        "Content-Type":  "application/json"
-      },
-      body: JSON.stringify({ range: range, majorDimension: "ROWS", values: values })
-    }).then(function(r) { return r.json(); });
   }
 
   /* ══════════ SUBMIT ══════════ */
@@ -468,55 +476,46 @@
       };
     });
 
-    /* Reverse geocode first if we have coords */
     var geoPromise = (locationStr.indexOf(",") !== -1)
       ? reverseGeocode(locationStr)
       : Promise.resolve(locationStr);
 
     geoPromise.then(function(locationValue) {
+      var writes = [];
 
-      /* ── Write to DAILY LOG sheet ── */
-      var writePromises = [];
+      /* Technician name row 1 col F, Date row 2 col F */
+      writes.push(sheetsUpdate(SID, "Sheet1!F1", [[WORKER_NAME]]));
+      writes.push(sheetsUpdate(SID, "Sheet1!F2", [[DATE_TODAY]]));
 
-      /* Technician name — row 1 col F */
-      writePromises.push(sheetsUpdate(SID, "Sheet1!F1", [[WORKER_NAME]]));
-      /* Date — row 2 col F */
-      writePromises.push(sheetsUpdate(SID, "Sheet1!F2", [[DATE_TODAY]]));
-
-      /* Asset statuses — match by row index */
+      /* Asset rows — status col D, values col E, notes col F */
       assets.forEach(function(a, idx) {
-        var sheetRow = HEADER_ROW + 2 + idx; // 1-indexed
-        writePromises.push(sheetsUpdate(SID, "Sheet1!D" + sheetRow + ":F" + sheetRow,
+        var row = HEADER_ROW + 2 + idx;
+        writes.push(sheetsUpdate(SID, "Sheet1!D" + row + ":F" + row,
           [[a.status, a.values, a.notes]]));
       });
 
       /* QR Scan Time */
       if (QR_SCAN_ROW >= 0) {
-        writePromises.push(sheetsUpdate(SID, "Sheet1!B" + (QR_SCAN_ROW + 1), [[SCAN_TIME]]));
+        writes.push(sheetsUpdate(SID, "Sheet1!B" + (QR_SCAN_ROW + 1), [[SCAN_TIME]]));
       }
 
       /* Location */
-      var locRow = LOC_ROW >= 0 ? LOC_ROW + 1 : -1;
-      if (locRow > 0) {
-        writePromises.push(sheetsUpdate(SID, "Sheet1!B" + locRow, [[locationValue]]));
+      if (LOC_ROW >= 0) {
+        writes.push(sheetsUpdate(SID, "Sheet1!B" + (LOC_ROW + 1), [[locationValue]]));
       }
 
-      return Promise.all(writePromises).then(function() {
-
-        /* ── Append to MASTER LOG sheet ── */
+      return Promise.all(writes).then(function() {
         var buildingName = document.getElementById("bn").textContent;
 
-        /* Check if master sheet has headers */
+        /* Check master sheet headers */
         return fetch(SHEETS_BASE + "/" + MASTER_SHEET_ID + "/values/Sheet1!A1?key=" + SHEETS_API_KEY)
           .then(function(r) { return r.json(); })
           .then(function(data) {
             var hasHeaders = data.values && data.values[0] && data.values[0][0] === "Timestamp";
-            var headerPromise = hasHeaders
-              ? Promise.resolve()
-              : sheetsAppend(MASTER_SHEET_ID, "Sheet1", [[
-                  "Timestamp", "Date", "Building", "Worker Name", "Worker Email",
-                  "Asset ID", "Asset Group", "Description", "Status", "Values", "Notes", "Location"
-                ]]);
+            var headerPromise = hasHeaders ? Promise.resolve() : sheetsAppend(MASTER_SHEET_ID, "Sheet1", [[
+              "Timestamp", "Date", "Building", "Worker Name", "Worker Email",
+              "Asset ID", "Asset Group", "Description", "Status", "Values", "Notes", "Location"
+            ]]);
 
             return headerPromise.then(function() {
               var rows = assets.map(function(a) {
@@ -531,7 +530,6 @@
             });
           });
       });
-
     })
     .then(function() {
       document.getElementById("sd").innerHTML =
