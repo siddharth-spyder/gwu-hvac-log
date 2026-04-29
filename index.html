@@ -182,7 +182,7 @@
   /* ══════════ CONFIG ══════════ */
   var GOOGLE_CLIENT_ID = "299988979066-tpjv18efr9sqv7s66iarl8a4pkno4qcg.apps.googleusercontent.com";
   var SHEETS_API_KEY   = "AIzaSyCjexOXL9-VAk6jE3TKFawlAKg4NCOuWps";
-  var APPS_SCRIPT_URL  = "https://script.google.com/macros/s/AKfycbyBzWAMb3bg6khFAhUIbc06r2fmrTTG8DdIEMJujGTxNV8fJaYneVRabY_FyHxcEMxuYg/exec";
+  var APPS_SCRIPT_URL  = "https://script.google.com/macros/s/AKfycbyxEcopWFh7EELAZSxukNiwWSUd1s1tG8JW0b6Ak-LR4fioB-26chyeC2dAxHfI4QDZjA/exec";
 
   /* ══════════ CONSTANTS ══════════ */
   var STATUS_OPTIONS = ["On", "Off", "Alarm", "Loto", "Out of Service", "N/A"];
@@ -253,9 +253,9 @@
   }
 
   function handleCredentialResponse(response) {
-    var payload      = JSON.parse(atob(response.credential.split(".")[1]));
-    WORKER_NAME      = payload.name  || payload.email.split("@")[0];
-    WORKER_EMAIL     = payload.email || "";
+    var payload  = JSON.parse(atob(response.credential.split(".")[1]));
+    WORKER_NAME  = payload.name  || payload.email.split("@")[0];
+    WORKER_EMAIL = payload.email || "";
 
     document.getElementById("wname").textContent  = WORKER_NAME;
     document.getElementById("wemail").textContent = WORKER_EMAIL;
@@ -376,7 +376,7 @@
     });
   }
 
-  /* ══════════ SUBMIT ══════════ */
+  /* ══════════ SUBMIT — Two step GET approach ══════════ */
   function submitForm() {
     var missing = ASSETS.filter(function(a) { return !statusMap[a.id]; });
     if (missing.length) {
@@ -412,29 +412,29 @@
       })
     };
 
-    /* XMLHttpRequest — works on iOS Safari where fetch no-cors fails */
-    var xhr = new XMLHttpRequest();
-    xhr.open("POST", APPS_SCRIPT_URL, true);
-    xhr.setRequestHeader("Content-Type", "text/plain");
+    var encoded = encodeURIComponent(JSON.stringify(payload));
 
-    xhr.onreadystatechange = function() {
-      if (xhr.readyState === 4) {
-        /* Show success regardless of response — Apps Script
-           may return CORS error even when write succeeded */
+    /* Step 1 — Store payload in ScriptProperties */
+    fetch(APPS_SCRIPT_URL + "?action=store&data=" + encoded)
+      .then(function(r) { return r.json(); })
+      .then(function(res) {
+        if (!res.success) throw new Error(res.error || "Store failed");
+
+        /* Step 2 — Trigger write using stored key */
+        return fetch(APPS_SCRIPT_URL + "?action=write&key=" + res.key);
+      })
+      .then(function(r) { return r.json(); })
+      .then(function(res) {
+        if (!res.success) throw new Error(res.error || "Write failed");
         document.getElementById("sd").innerHTML =
           WORKER_NAME + "'s log submitted.<br>" + DATE_TODAY + " · " + SCAN_TIME;
         document.getElementById("succ").classList.add("show");
-      }
-    };
-
-    xhr.onerror = function() {
-      /* Network error — but write may have still happened */
-      document.getElementById("sd").innerHTML =
-        WORKER_NAME + "'s log submitted.<br>" + DATE_TODAY + " · " + SCAN_TIME;
-      document.getElementById("succ").classList.add("show");
-    };
-
-    xhr.send(JSON.stringify(payload));
+      })
+      .catch(function(err) {
+        btn.disabled = false;
+        btn.textContent = "Submit Daily Log";
+        toast("❌ " + err.message, "err");
+      });
   }
 
   /* ══════════ HELPERS ══════════ */
