@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1"/>
   <title>GWU HVAC Log</title>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
-  <script src="https://accounts.google.com/gsi/client" async defer></script>
   <style>
     :root {
       --navy:#002147;--gold:#FFD200;--white:#fff;--bg:#F2F4F8;
@@ -34,7 +33,7 @@
     .divider{width:100%;max-width:280px;height:1px;background:rgba(255,255,255,.15);}
     .signin-btn{display:flex;align-items:center;gap:10px;background:#fff;color:#1A2340;border:none;border-radius:12px;padding:14px 24px;font-family:"DM Sans",sans-serif;font-size:15px;font-weight:600;cursor:pointer;box-shadow:0 2px 12px rgba(0,0,0,.2);-webkit-tap-highlight-color:transparent;transition:transform .1s;}
     .signin-btn:active{transform:scale(.97);}
-    .signin-btn img{width:22px;height:22px;}
+    .signin-btn svg{width:22px;height:22px;}
 
     .es{display:none;position:fixed;inset:0;background:var(--bg);flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:32px;text-align:center;}
     .es.show{display:flex;}
@@ -53,7 +52,7 @@
 
     .worker{margin:12px 14px 0;background:var(--white);border-radius:var(--radius);border:1.5px solid var(--border);padding:11px 13px;display:flex;align-items:center;gap:11px;}
     .avatar{width:40px;height:40px;border-radius:50%;background:var(--navy);color:var(--gold);font-size:15px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden;}
-    .avatar img{width:100%;height:100%;object-fit:cover;}
+    .avatar img{width:100%;height:100%;object-fit:cover;border-radius:50%;}
     .winfo{flex:1;min-width:0;}
     .wname{font-weight:700;font-size:14px;}
     .wemail{font-size:11px;color:var(--muted);font-family:"DM Mono",monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:2px;}
@@ -122,10 +121,15 @@
 <div class="signin-screen" id="signin-screen">
   <div class="gwu-logo">GW</div>
   <h2>GWU HVAC Daily Log</h2>
-  <p>Sign in with your Google account to access the daily log form.</p>
+  <p>Sign in with your Google account to access and submit the daily log.</p>
   <div class="divider"></div>
-  <button class="signin-btn" onclick="signIn()">
-    <img src="https://www.google.com/favicon.ico" alt="Google"/>
+  <button class="signin-btn" id="signin-btn">
+    <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+      <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+      <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+      <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+      <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+    </svg>
     Sign in with Google
   </button>
 </div>
@@ -182,10 +186,12 @@
   /* ══════════ CONFIG ══════════ */
   var GOOGLE_CLIENT_ID = "299988979066-tpjv18efr9sqv7s66iarl8a4pkno4qcg.apps.googleusercontent.com";
   var SHEETS_API_KEY   = "AIzaSyCjexOXL9-VAk6jE3TKFawlAKg4NCOuWps";
-  var APPS_SCRIPT_URL  = "https://script.google.com/macros/s/AKfycbyxEcopWFh7EELAZSxukNiwWSUd1s1tG8JW0b6Ak-LR4fioB-26chyeC2dAxHfI4QDZjA/exec";
+  var MASTER_SHEET_ID  = "1ZZh3W3Zu5CUZ2Lw-Dj7UOPc022IOpkO3-malw85n11A";
+  var GEOCODING_KEY    = "AIzaSyCjexOXL9-VAk6jE3TKFawlAKg4NCOuWps";
 
   /* ══════════ CONSTANTS ══════════ */
   var STATUS_OPTIONS = ["On", "Off", "Alarm", "Loto", "Out of Service", "N/A"];
+  var SHEETS_BASE    = "https://sheets.googleapis.com/v4/spreadsheets";
 
   /* ══════════ STATE ══════════ */
   var SID          = new URLSearchParams(window.location.search).get("sid") || "";
@@ -198,6 +204,7 @@
   var locationStr  = "Unavailable";
   var WORKER_NAME  = "";
   var WORKER_EMAIL = "";
+  var ACCESS_TOKEN = "";
 
   /* Timestamps */
   var now        = new Date();
@@ -223,60 +230,83 @@
     lc.className = "lc fail";
   }
 
-  /* ══════════ GOOGLE SIGN-IN ══════════ */
+  /* ══════════ GOOGLE OAUTH2 SIGN-IN ══════════
+     Uses google.accounts.oauth2 to get an access token
+     with Sheets write scope — no Apps Script needed */
+  var tokenClient;
+
   window.onload = function() {
     if (!SID) {
       document.getElementById("ls").classList.add("hide");
       showError("No sheet ID found. Please scan the correct QR code.");
       return;
     }
+
+    /* Load Google Identity Services */
     var checkGSI = setInterval(function() {
-      if (window.google && window.google.accounts) {
+      if (window.google && window.google.accounts && window.google.accounts.oauth2) {
         clearInterval(checkGSI);
-        google.accounts.id.initialize({
-          client_id:   GOOGLE_CLIENT_ID,
-          callback:    handleCredentialResponse,
-          auto_select: true
+
+        tokenClient = google.accounts.oauth2.initTokenClient({
+          client_id: GOOGLE_CLIENT_ID,
+          scope: [
+            "https://www.googleapis.com/auth/spreadsheets",
+            "https://www.googleapis.com/auth/userinfo.profile",
+            "https://www.googleapis.com/auth/userinfo.email"
+          ].join(" "),
+          callback: handleTokenResponse
         });
-        google.accounts.id.prompt(function(notification) {
-          if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-            document.getElementById("ls").classList.add("hide");
-            document.getElementById("signin-screen").classList.add("show");
-          }
-        });
+
+        document.getElementById("ls").classList.add("hide");
+        document.getElementById("signin-screen").classList.add("show");
+
+        document.getElementById("signin-btn").onclick = function() {
+          tokenClient.requestAccessToken({ prompt: "consent" });
+        };
       }
     }, 100);
   };
 
-  function signIn() {
-    google.accounts.id.prompt();
-  }
-
-  function handleCredentialResponse(response) {
-    var payload  = JSON.parse(atob(response.credential.split(".")[1]));
-    WORKER_NAME  = payload.name  || payload.email.split("@")[0];
-    WORKER_EMAIL = payload.email || "";
-
-    document.getElementById("wname").textContent  = WORKER_NAME;
-    document.getElementById("wemail").textContent = WORKER_EMAIL;
-
-    var av = document.getElementById("av");
-    if (payload.picture) {
-      av.innerHTML = '<img src="' + payload.picture + '" alt="' + WORKER_NAME + '"/>';
-    } else {
-      av.textContent = WORKER_NAME.split(" ").map(function(w){ return w[0]||""; }).join("").slice(0,2).toUpperCase();
+  function handleTokenResponse(tokenResponse) {
+    if (tokenResponse.error) {
+      showError("Sign-in failed: " + tokenResponse.error);
+      return;
     }
 
-    document.getElementById("signin-screen").classList.remove("show");
-    document.getElementById("ls").classList.remove("hide");
-    document.getElementById("ls-msg").textContent = "Loading daily log…";
-    loadSheet();
+    ACCESS_TOKEN = tokenResponse.access_token;
+
+    /* Get user info */
+    fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
+      headers: { "Authorization": "Bearer " + ACCESS_TOKEN }
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(info) {
+      WORKER_NAME  = info.name  || info.email.split("@")[0];
+      WORKER_EMAIL = info.email || "";
+
+      document.getElementById("wname").textContent  = WORKER_NAME;
+      document.getElementById("wemail").textContent = WORKER_EMAIL;
+
+      var av = document.getElementById("av");
+      if (info.picture) {
+        av.innerHTML = '<img src="' + info.picture + '" alt="' + WORKER_NAME + '"/>';
+      } else {
+        av.textContent = WORKER_NAME.split(" ").map(function(w){ return w[0]||""; }).join("").slice(0,2).toUpperCase();
+      }
+
+      document.getElementById("signin-screen").classList.remove("show");
+      document.getElementById("ls").classList.remove("hide");
+      document.getElementById("ls-msg").textContent = "Loading daily log…";
+      loadSheet();
+    })
+    .catch(function(err) {
+      showError("Failed to get user info: " + err.message);
+    });
   }
 
   /* ══════════ LOAD SHEET ══════════ */
   function loadSheet() {
-    var url = "https://sheets.googleapis.com/v4/spreadsheets/" + SID +
-              "/values/Sheet1?key=" + SHEETS_API_KEY;
+    var url = SHEETS_BASE + "/" + SID + "/values/Sheet1?key=" + SHEETS_API_KEY;
 
     fetch(url)
       .then(function(r) { return r.json(); })
@@ -376,7 +406,44 @@
     });
   }
 
-  /* ══════════ SUBMIT — Two step GET approach ══════════ */
+  /* ══════════ REVERSE GEOCODE ══════════ */
+  function reverseGeocode(coords) {
+    return fetch("https://maps.googleapis.com/maps/api/geocode/json?latlng=" +
+                 coords + "&key=" + GEOCODING_KEY)
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (data.status === "OK" && data.results.length > 0) {
+          return data.results[0].formatted_address;
+        }
+        return coords;
+      })
+      .catch(function() { return coords; });
+  }
+
+  /* ══════════ WRITE TO SHEET via Sheets API ══════════ */
+  function sheetsUpdate(sheetId, range, values) {
+    return fetch(SHEETS_BASE + "/" + sheetId + "/values/" + range + "?valueInputOption=RAW", {
+      method:  "PUT",
+      headers: {
+        "Authorization": "Bearer " + ACCESS_TOKEN,
+        "Content-Type":  "application/json"
+      },
+      body: JSON.stringify({ range: range, majorDimension: "ROWS", values: values })
+    }).then(function(r) { return r.json(); });
+  }
+
+  function sheetsAppend(sheetId, range, values) {
+    return fetch(SHEETS_BASE + "/" + sheetId + "/values/" + range + ":append?valueInputOption=RAW&insertDataOption=INSERT_ROWS", {
+      method:  "POST",
+      headers: {
+        "Authorization": "Bearer " + ACCESS_TOKEN,
+        "Content-Type":  "application/json"
+      },
+      body: JSON.stringify({ range: range, majorDimension: "ROWS", values: values })
+    }).then(function(r) { return r.json(); });
+  }
+
+  /* ══════════ SUBMIT ══════════ */
   function submitForm() {
     var missing = ASSETS.filter(function(a) { return !statusMap[a.id]; });
     if (missing.length) {
@@ -390,51 +457,92 @@
     btn.disabled = true;
     btn.textContent = "Submitting…";
 
-    var payload = {
-      sid:         SID,
-      workerName:  WORKER_NAME,
-      workerEmail: WORKER_EMAIL,
-      scanTime:    SCAN_TIME,
-      dateToday:   DATE_TODAY,
-      location:    locationStr,
-      headerRow:   HEADER_ROW,
-      qrScanRow:   QR_SCAN_ROW,
-      locationRow: LOC_ROW,
-      assets: ASSETS.map(function(a) {
-        return {
-          id:          a.id,
-          group:       a.group,
-          description: a.description,
-          status:      statusMap[a.id],
-          values:      (document.getElementById("val-"  + a.id) || {}).value || "",
-          notes:       (document.getElementById("note-" + a.id) || {}).value || ""
-        };
-      })
-    };
+    var assets = ASSETS.map(function(a) {
+      return {
+        id:          a.id,
+        group:       a.group,
+        description: a.description,
+        status:      statusMap[a.id],
+        values:      (document.getElementById("val-"  + a.id) || {}).value || "",
+        notes:       (document.getElementById("note-" + a.id) || {}).value || ""
+      };
+    });
 
-    var encoded = encodeURIComponent(JSON.stringify(payload));
+    /* Reverse geocode first if we have coords */
+    var geoPromise = (locationStr.indexOf(",") !== -1)
+      ? reverseGeocode(locationStr)
+      : Promise.resolve(locationStr);
 
-    /* Step 1 — Store payload in ScriptProperties */
-    fetch(APPS_SCRIPT_URL + "?action=store&data=" + encoded)
-      .then(function(r) { return r.json(); })
-      .then(function(res) {
-        if (!res.success) throw new Error(res.error || "Store failed");
+    geoPromise.then(function(locationValue) {
 
-        /* Step 2 — Trigger write using stored key */
-        return fetch(APPS_SCRIPT_URL + "?action=write&key=" + res.key);
-      })
-      .then(function(r) { return r.json(); })
-      .then(function(res) {
-        if (!res.success) throw new Error(res.error || "Write failed");
-        document.getElementById("sd").innerHTML =
-          WORKER_NAME + "'s log submitted.<br>" + DATE_TODAY + " · " + SCAN_TIME;
-        document.getElementById("succ").classList.add("show");
-      })
-      .catch(function(err) {
-        btn.disabled = false;
-        btn.textContent = "Submit Daily Log";
-        toast("❌ " + err.message, "err");
+      /* ── Write to DAILY LOG sheet ── */
+      var writePromises = [];
+
+      /* Technician name — row 1 col F */
+      writePromises.push(sheetsUpdate(SID, "Sheet1!F1", [[WORKER_NAME]]));
+      /* Date — row 2 col F */
+      writePromises.push(sheetsUpdate(SID, "Sheet1!F2", [[DATE_TODAY]]));
+
+      /* Asset statuses — match by row index */
+      assets.forEach(function(a, idx) {
+        var sheetRow = HEADER_ROW + 2 + idx; // 1-indexed
+        writePromises.push(sheetsUpdate(SID, "Sheet1!D" + sheetRow + ":F" + sheetRow,
+          [[a.status, a.values, a.notes]]));
       });
+
+      /* QR Scan Time */
+      if (QR_SCAN_ROW >= 0) {
+        writePromises.push(sheetsUpdate(SID, "Sheet1!B" + (QR_SCAN_ROW + 1), [[SCAN_TIME]]));
+      }
+
+      /* Location */
+      var locRow = LOC_ROW >= 0 ? LOC_ROW + 1 : -1;
+      if (locRow > 0) {
+        writePromises.push(sheetsUpdate(SID, "Sheet1!B" + locRow, [[locationValue]]));
+      }
+
+      return Promise.all(writePromises).then(function() {
+
+        /* ── Append to MASTER LOG sheet ── */
+        var buildingName = document.getElementById("bn").textContent;
+
+        /* Check if master sheet has headers */
+        return fetch(SHEETS_BASE + "/" + MASTER_SHEET_ID + "/values/Sheet1!A1?key=" + SHEETS_API_KEY)
+          .then(function(r) { return r.json(); })
+          .then(function(data) {
+            var hasHeaders = data.values && data.values[0] && data.values[0][0] === "Timestamp";
+            var headerPromise = hasHeaders
+              ? Promise.resolve()
+              : sheetsAppend(MASTER_SHEET_ID, "Sheet1", [[
+                  "Timestamp", "Date", "Building", "Worker Name", "Worker Email",
+                  "Asset ID", "Asset Group", "Description", "Status", "Values", "Notes", "Location"
+                ]]);
+
+            return headerPromise.then(function() {
+              var rows = assets.map(function(a) {
+                return [
+                  SCAN_TIME, DATE_TODAY, buildingName,
+                  WORKER_NAME, WORKER_EMAIL,
+                  a.id, a.group, a.description, a.status,
+                  a.values, a.notes, locationValue
+                ];
+              });
+              return sheetsAppend(MASTER_SHEET_ID, "Sheet1", rows);
+            });
+          });
+      });
+
+    })
+    .then(function() {
+      document.getElementById("sd").innerHTML =
+        WORKER_NAME + "'s log submitted.<br>" + DATE_TODAY + " · " + SCAN_TIME;
+      document.getElementById("succ").classList.add("show");
+    })
+    .catch(function(err) {
+      btn.disabled = false;
+      btn.textContent = "Submit Daily Log";
+      toast("❌ " + err.message, "err");
+    });
   }
 
   /* ══════════ HELPERS ══════════ */
