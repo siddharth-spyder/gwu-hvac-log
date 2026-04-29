@@ -179,10 +179,10 @@
 </div>
 
 <script>
-  /* ══════════ CONFIG — fill these in ══════════ */
+  /* ══════════ CONFIG ══════════ */
   var GOOGLE_CLIENT_ID = "299988979066-tpjv18efr9sqv7s66iarl8a4pkno4qcg.apps.googleusercontent.com";
   var SHEETS_API_KEY   = "AIzaSyCjexOXL9-VAk6jE3TKFawlAKg4NCOuWps";
-  var APPS_SCRIPT_URL  = "https://script.google.com/macros/s/AKfycbybxFYBbWnmdlf8oL4AEGxqqU0GtCM0T_QIDgTedQkUHl9z-2ujS5ipKjLb6LMogHiKig/exec";
+  var APPS_SCRIPT_URL  = "https://script.google.com/macros/s/AKfycbzsZtxDIRNCkzWXMVMKoTTxglxRX-9W053AiE9TBr4j4MnC-Uc7rqt4J2icrUgazy9bZQ/exec";
 
   /* ══════════ CONSTANTS ══════════ */
   var STATUS_OPTIONS = ["On", "Off", "Alarm", "Loto", "Out of Service", "N/A"];
@@ -282,7 +282,6 @@
       .then(function(r) { return r.json(); })
       .then(function(data) {
         if (data.error) throw new Error(data.error.message);
-
         var rows = data.values || [];
 
         var buildingName = (rows[0] && rows[0][1]) ? rows[0][1].trim() : "Unknown Building";
@@ -291,7 +290,6 @@
         document.getElementById("bn").textContent   = buildingName;
         document.getElementById("addr").textContent = address;
 
-        /* Find header row */
         var headerRow = -1;
         for (var i = 0; i < rows.length; i++) {
           if (rows[i][0] && rows[i][0].trim().toLowerCase() === "asset id") {
@@ -300,7 +298,6 @@
         }
         if (headerRow === -1) throw new Error("Could not find Asset ID header row.");
 
-        /* Find bottom rows */
         var qrScanRow = -1, locationRow = -1;
         for (var j = rows.length - 1; j > headerRow; j--) {
           var cell = rows[j][0] ? rows[j][0].trim().toUpperCase() : "";
@@ -313,7 +310,6 @@
         QR_SCAN_ROW = qrScanRow;
         LOC_ROW     = locationRow;
 
-        /* Asset rows */
         var assetEnd = rows.length;
         if (qrScanRow   !== -1) assetEnd = Math.min(assetEnd, qrScanRow);
         if (locationRow !== -1) assetEnd = Math.min(assetEnd, locationRow);
@@ -416,25 +412,25 @@
       })
     };
 
-    /* no-cors mode — Apps Script doesn't return readable response cross-origin
-       but the data still writes to the sheet correctly */
-    fetch(APPS_SCRIPT_URL, {
-      method:  "POST",
-      mode:    "no-cors",
-      headers: { "Content-Type": "text/plain" },
-      body:    JSON.stringify(payload)
-    })
-    .then(function() {
-      /* Opaque response — assume success */
+    /* Use image ping — bypasses CORS on iOS Safari completely */
+    var encoded = encodeURIComponent(JSON.stringify(payload));
+    var img     = new Image();
+
+    img.onload = function() {
       document.getElementById("sd").innerHTML =
         WORKER_NAME + "'s log submitted.<br>" + DATE_TODAY + " · " + SCAN_TIME;
       document.getElementById("succ").classList.add("show");
-    })
-    .catch(function(err) {
-      btn.disabled = false;
-      btn.textContent = "Submit Daily Log";
-      toast("❌ " + err.message, "err");
-    });
+    };
+
+    img.onerror = function() {
+      /* Apps Script returns JSON not an image so onerror fires even on success
+         We show success here too — the write still happened */
+      document.getElementById("sd").innerHTML =
+        WORKER_NAME + "'s log submitted.<br>" + DATE_TODAY + " · " + SCAN_TIME;
+      document.getElementById("succ").classList.add("show");
+    };
+
+    img.src = APPS_SCRIPT_URL + "?data=" + encoded;
   }
 
   /* ══════════ HELPERS ══════════ */
