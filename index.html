@@ -510,7 +510,7 @@
         var buildingName = document.getElementById("bn").textContent;
 
         /* Check master sheet headers */
-        return fetch(SHEETS_BASE + "/" + MASTER_SHEET_ID + "/values/Sheet1!A1?key=" + SHEETS_API_KEY)
+        return fetch(SHEETS_BASE + "/" + MASTER_SHEET_ID + "/values/Sheet1!A1", {   headers: { "Authorization": "Bearer " + ACCESS_TOKEN } })
           .then(function(r) { return r.json(); })
           .then(function(data) {
             var hasHeaders = data.values && data.values[0] && data.values[0][0] === "Timestamp";
