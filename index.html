@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1"/>
   <title>GWU HVAC Log</title>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
-  <!-- Load GSI client — provides both google.accounts.id AND google.accounts.oauth2 -->
   <script src="https://accounts.google.com/gsi/client"></script>
   <style>
     :root {
@@ -187,7 +186,6 @@
 <script>
   /* ══════════ CONFIG ══════════ */
   var GOOGLE_CLIENT_ID = "540290742571-ndn8ccf33j7e07mo2q98p3ff5lhcgko9.apps.googleusercontent.com";
-  var SHEETS_API_KEY   = "AIzaSyDNm22BNboy-7lsx--VfReXSDZzm5ha2ng";
   var MASTER_SHEET_ID  = "10Xtba501JP-_BEdVGkH5UM0N5WvY2dRBPSTyWMYmqvU";
   var GEOCODING_KEY    = "AIzaSyDNm22BNboy-7lsx--VfReXSDZzm5ha2ng";
 
@@ -206,6 +204,7 @@
   var HEADER_ROW   = -1;
   var QR_SCAN_ROW  = -1;
   var LOC_ROW      = -1;
+  var TAB_NAME     = "Sheet1"; // will be updated dynamically
   var statusMap    = {};
   var doneCount    = 0;
   var locationStr  = "Unavailable";
@@ -238,50 +237,41 @@
     lc.className = "lc fail";
   }
 
-  /* ══════════ INIT — wait for GSI to be ready ══════════ */
+  /* ══════════ INIT GSI ══════════ */
   function initGSI() {
     if (!SID) {
       document.getElementById("ls").classList.add("hide");
       showError("No sheet ID found. Please scan the correct QR code.");
       return;
     }
-
     try {
       tokenClient = google.accounts.oauth2.initTokenClient({
         client_id: GOOGLE_CLIENT_ID,
         scope:     SCOPES,
         callback:  handleTokenResponse
       });
-
       document.getElementById("ls").classList.add("hide");
       document.getElementById("signin-screen").classList.add("show");
-
       document.getElementById("signin-btn").onclick = function() {
         tokenClient.requestAccessToken({ prompt: "consent" });
       };
-
     } catch(err) {
-      /* oauth2 not ready yet — retry */
       setTimeout(initGSI, 200);
     }
   }
 
-  /* GSI loads synchronously (no async/defer) so it's ready by DOMContentLoaded */
   document.addEventListener("DOMContentLoaded", function() {
-    /* Small delay to ensure GSI fully initializes */
     setTimeout(initGSI, 300);
   });
 
-  /* ══════════ HANDLE TOKEN RESPONSE ══════════ */
+  /* ══════════ HANDLE TOKEN ══════════ */
   function handleTokenResponse(tokenResponse) {
     if (tokenResponse.error) {
       showError("Sign-in failed: " + tokenResponse.error);
       return;
     }
-
     ACCESS_TOKEN = tokenResponse.access_token;
 
-    /* Get user info using the access token */
     fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
       headers: { "Authorization": "Bearer " + ACCESS_TOKEN }
     })
@@ -289,96 +279,89 @@
     .then(function(info) {
       WORKER_NAME  = info.name  || (info.email ? info.email.split("@")[0] : "Unknown");
       WORKER_EMAIL = info.email || "";
-
       document.getElementById("wname").textContent  = WORKER_NAME;
       document.getElementById("wemail").textContent = WORKER_EMAIL;
-
       var av = document.getElementById("av");
       if (info.picture) {
         av.innerHTML = '<img src="' + info.picture + '" alt="' + WORKER_NAME + '"/>';
       } else {
         av.textContent = WORKER_NAME.split(" ").map(function(w){ return w[0]||""; }).join("").slice(0,2).toUpperCase();
       }
-
       document.getElementById("signin-screen").classList.remove("show");
       document.getElementById("ls").classList.remove("hide");
       document.getElementById("ls-msg").textContent = "Loading daily log…";
       loadSheet();
     })
-    .catch(function(err) {
-      showError("Failed to get user info: " + err.message);
-    });
+    .catch(function(err) { showError("Failed to get user info: " + err.message); });
   }
 
-  /* ══════════ LOAD SHEET ══════════ */
-function loadSheet() {
-  /* Step 1: Get sheet metadata to find first tab name */
-  fetch(SHEETS_BASE + "/" + SID + "?fields=sheets.properties.title", {
-    headers: { "Authorization": "Bearer " + ACCESS_TOKEN }
-  })
-  .then(function(r) { return r.json(); })
-  .then(function(meta) {
-    if (meta.error) throw new Error(meta.error.message);
-    /* Get first tab name */
-    var tabName = meta.sheets[0].properties.title;
-    /* Step 2: Read data using actual tab name */
-    return fetch(SHEETS_BASE + "/" + SID + "/values/" + encodeURIComponent(tabName), {
+  /* ══════════ LOAD SHEET — dynamic tab name ══════════ */
+  function loadSheet() {
+    /* Step 1: Get sheet metadata to find first tab name */
+    fetch(SHEETS_BASE + "/" + SID + "?fields=sheets.properties.title", {
       headers: { "Authorization": "Bearer " + ACCESS_TOKEN }
-    });
-  })
-  .then(function(r) { return r.json(); })
-  .then(function(data) {
-    if (data.error) throw new Error(data.error.message);
-        var rows = data.values || [];
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(meta) {
+      if (meta.error) throw new Error(meta.error.message);
+      /* Use first tab name dynamically */
+      TAB_NAME = meta.sheets[0].properties.title;
 
-        var buildingName = (rows[0] && rows[0][1]) ? rows[0][1].trim() : "Unknown Building";
-        var address      = (rows[1] && rows[1][1]) ? rows[1][1].trim() : "";
-
-        document.getElementById("bn").textContent   = buildingName;
-        document.getElementById("addr").textContent = address;
-
-        var headerRow = -1;
-        for (var i = 0; i < rows.length; i++) {
-          if (rows[i][0] && rows[i][0].trim().toLowerCase() === "asset id") {
-            headerRow = i; break;
-          }
-        }
-        if (headerRow === -1) throw new Error("Could not find Asset ID header row.");
-
-        var qrScanRow = -1, locationRow = -1;
-        for (var j = rows.length - 1; j > headerRow; j--) {
-          var cell = rows[j][0] ? rows[j][0].trim().toUpperCase() : "";
-          if (cell.indexOf("LOCATION")  !== -1 && locationRow === -1) locationRow = j;
-          if ((cell.indexOf("QR SCAN")  !== -1 || cell.indexOf("SCAN TIME") !== -1) && qrScanRow === -1) qrScanRow = j;
-          if (qrScanRow !== -1 && locationRow !== -1) break;
-        }
-
-        HEADER_ROW  = headerRow;
-        QR_SCAN_ROW = qrScanRow;
-        LOC_ROW     = locationRow;
-
-        var assetEnd = rows.length;
-        if (qrScanRow   !== -1) assetEnd = Math.min(assetEnd, qrScanRow);
-        if (locationRow !== -1) assetEnd = Math.min(assetEnd, locationRow);
-
-        for (var r = headerRow + 1; r < assetEnd; r++) {
-          var assetId = rows[r][0] ? rows[r][0].trim() : "";
-          if (!assetId) continue;
-          ASSETS.push({
-            id:          assetId,
-            group:       rows[r][1] ? rows[r][1].trim() : "",
-            description: rows[r][2] ? rows[r][2].trim() : ""
-          });
-        }
-
-        document.getElementById("tot").textContent = ASSETS.length;
-        buildCards(ASSETS);
-        document.getElementById("ls").classList.add("hide");
-        document.getElementById("main").style.display = "block";
-      })
-      .catch(function(err) {
-        showError("Failed to load sheet: " + err.message);
+      /* Step 2: Read sheet data using actual tab name */
+      return fetch(SHEETS_BASE + "/" + SID + "/values/" + encodeURIComponent(TAB_NAME), {
+        headers: { "Authorization": "Bearer " + ACCESS_TOKEN }
       });
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.error) throw new Error(data.error.message);
+      var rows = data.values || [];
+
+      var buildingName = (rows[0] && rows[0][1]) ? rows[0][1].trim() : "Unknown Building";
+      var address      = (rows[1] && rows[1][1]) ? rows[1][1].trim() : "";
+      document.getElementById("bn").textContent   = buildingName;
+      document.getElementById("addr").textContent = address;
+
+      var headerRow = -1;
+      for (var i = 0; i < rows.length; i++) {
+        if (rows[i][0] && rows[i][0].trim().toLowerCase() === "asset id") {
+          headerRow = i; break;
+        }
+      }
+      if (headerRow === -1) throw new Error("Could not find Asset ID header row.");
+
+      var qrScanRow = -1, locationRow = -1;
+      for (var j = rows.length - 1; j > headerRow; j--) {
+        var cell = rows[j][0] ? rows[j][0].trim().toUpperCase() : "";
+        if (cell.indexOf("LOCATION")  !== -1 && locationRow === -1) locationRow = j;
+        if ((cell.indexOf("QR SCAN")  !== -1 || cell.indexOf("SCAN TIME") !== -1) && qrScanRow === -1) qrScanRow = j;
+        if (qrScanRow !== -1 && locationRow !== -1) break;
+      }
+
+      HEADER_ROW  = headerRow;
+      QR_SCAN_ROW = qrScanRow;
+      LOC_ROW     = locationRow;
+
+      var assetEnd = rows.length;
+      if (qrScanRow   !== -1) assetEnd = Math.min(assetEnd, qrScanRow);
+      if (locationRow !== -1) assetEnd = Math.min(assetEnd, locationRow);
+
+      for (var r = headerRow + 1; r < assetEnd; r++) {
+        var assetId = rows[r][0] ? rows[r][0].trim() : "";
+        if (!assetId) continue;
+        ASSETS.push({
+          id:          assetId,
+          group:       rows[r][1] ? rows[r][1].trim() : "",
+          description: rows[r][2] ? rows[r][2].trim() : ""
+        });
+      }
+
+      document.getElementById("tot").textContent = ASSETS.length;
+      buildCards(ASSETS);
+      document.getElementById("ls").classList.add("hide");
+      document.getElementById("main").style.display = "block";
+    })
+    .catch(function(err) { showError("Failed to load sheet: " + err.message); });
   }
 
   /* ══════════ BUILD CARDS ══════════ */
@@ -428,10 +411,7 @@ function loadSheet() {
     return fetch(SHEETS_BASE + "/" + sheetId + "/values/" + encodeURIComponent(range) +
                  "?valueInputOption=RAW", {
       method:  "PUT",
-      headers: {
-        "Authorization": "Bearer " + ACCESS_TOKEN,
-        "Content-Type":  "application/json"
-      },
+      headers: { "Authorization": "Bearer " + ACCESS_TOKEN, "Content-Type": "application/json" },
       body: JSON.stringify({ range: range, majorDimension: "ROWS", values: values })
     }).then(function(r) { return r.json(); });
   }
@@ -440,10 +420,7 @@ function loadSheet() {
     return fetch(SHEETS_BASE + "/" + sheetId + "/values/" + encodeURIComponent(range) +
                  ":append?valueInputOption=RAW&insertDataOption=INSERT_ROWS", {
       method:  "POST",
-      headers: {
-        "Authorization": "Bearer " + ACCESS_TOKEN,
-        "Content-Type":  "application/json"
-      },
+      headers: { "Authorization": "Bearer " + ACCESS_TOKEN, "Content-Type": "application/json" },
       body: JSON.stringify({ range: range, majorDimension: "ROWS", values: values })
     }).then(function(r) { return r.json(); });
   }
@@ -478,12 +455,10 @@ function loadSheet() {
 
     var assets = ASSETS.map(function(a) {
       return {
-        id:          a.id,
-        group:       a.group,
-        description: a.description,
-        status:      statusMap[a.id],
-        values:      (document.getElementById("val-"  + a.id) || {}).value || "",
-        notes:       (document.getElementById("note-" + a.id) || {}).value || ""
+        id: a.id, group: a.group, description: a.description,
+        status: statusMap[a.id],
+        values: (document.getElementById("val-"  + a.id) || {}).value || "",
+        notes:  (document.getElementById("note-" + a.id) || {}).value || ""
       };
     });
 
@@ -493,53 +468,55 @@ function loadSheet() {
 
     geoPromise.then(function(locationValue) {
       var writes = [];
+      var T = encodeURIComponent(TAB_NAME);
 
-      /* Technician name row 1 col F, Date row 2 col F */
-      writes.push(sheetsUpdate(SID, "Sheet1!F1", [[WORKER_NAME]]));
-      writes.push(sheetsUpdate(SID, "Sheet1!F2", [[DATE_TODAY]]));
+      /* Technician name + date */
+      writes.push(sheetsUpdate(SID, TAB_NAME + "!F1", [[WORKER_NAME]]));
+      writes.push(sheetsUpdate(SID, TAB_NAME + "!F2", [[DATE_TODAY]]));
 
-      /* Asset rows — status col D, values col E, notes col F */
+      /* Asset rows */
       assets.forEach(function(a, idx) {
         var row = HEADER_ROW + 2 + idx;
-        writes.push(sheetsUpdate(SID, "Sheet1!D" + row + ":F" + row,
+        writes.push(sheetsUpdate(SID, TAB_NAME + "!D" + row + ":F" + row,
           [[a.status, a.values, a.notes]]));
       });
 
       /* QR Scan Time */
       if (QR_SCAN_ROW >= 0) {
-        writes.push(sheetsUpdate(SID, "Sheet1!B" + (QR_SCAN_ROW + 1), [[SCAN_TIME]]));
+        writes.push(sheetsUpdate(SID, TAB_NAME + "!B" + (QR_SCAN_ROW + 1), [[SCAN_TIME]]));
       }
 
       /* Location */
       if (LOC_ROW >= 0) {
-        writes.push(sheetsUpdate(SID, "Sheet1!B" + (LOC_ROW + 1), [[locationValue]]));
+        writes.push(sheetsUpdate(SID, TAB_NAME + "!B" + (LOC_ROW + 1), [[locationValue]]));
       }
 
       return Promise.all(writes).then(function() {
         var buildingName = document.getElementById("bn").textContent;
 
-        /* Check master sheet headers */
-        return fetch(SHEETS_BASE + "/" + MASTER_SHEET_ID + "/values/Sheet1!A1", {   headers: { "Authorization": "Bearer " + ACCESS_TOKEN } })
-          .then(function(r) { return r.json(); })
-          .then(function(data) {
-            var hasHeaders = data.values && data.values[0] && data.values[0][0] === "Timestamp";
-            var headerPromise = hasHeaders ? Promise.resolve() : sheetsAppend(MASTER_SHEET_ID, "Sheet1", [[
-              "Timestamp", "Date", "Building", "Worker Name", "Worker Email",
-              "Asset ID", "Asset Group", "Description", "Status", "Values", "Notes", "Location"
-            ]]);
-
-            return headerPromise.then(function() {
-              var rows = assets.map(function(a) {
-                return [
-                  SCAN_TIME, DATE_TODAY, buildingName,
-                  WORKER_NAME, WORKER_EMAIL,
-                  a.id, a.group, a.description, a.status,
-                  a.values, a.notes, locationValue
-                ];
-              });
-              return sheetsAppend(MASTER_SHEET_ID, "Sheet1", rows);
+        /* Check master sheet headers using OAuth token */
+        return fetch(SHEETS_BASE + "/" + MASTER_SHEET_ID + "/values/Sheet1!A1", {
+          headers: { "Authorization": "Bearer " + ACCESS_TOKEN }
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          var hasHeaders = data.values && data.values[0] && data.values[0][0] === "Timestamp";
+          var headerPromise = hasHeaders ? Promise.resolve() : sheetsAppend(MASTER_SHEET_ID, "Sheet1", [[
+            "Timestamp", "Date", "Building", "Worker Name", "Worker Email",
+            "Asset ID", "Asset Group", "Description", "Status", "Values", "Notes", "Location"
+          ]]);
+          return headerPromise.then(function() {
+            var rows = assets.map(function(a) {
+              return [
+                SCAN_TIME, DATE_TODAY, buildingName,
+                WORKER_NAME, WORKER_EMAIL,
+                a.id, a.group, a.description, a.status,
+                a.values, a.notes, locationValue
+              ];
             });
+            return sheetsAppend(MASTER_SHEET_ID, "Sheet1", rows);
           });
+        });
       });
     })
     .then(function() {
