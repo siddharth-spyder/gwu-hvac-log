@@ -253,7 +253,7 @@
       document.getElementById("ls").classList.add("hide");
       document.getElementById("signin-screen").classList.add("show");
       document.getElementById("signin-btn").onclick = function() {
-        tokenClient.requestAccessToken({ prompt: "consent" });
+        tokenClient.requestAccessToken({ prompt: "" });
       };
     } catch(err) {
       setTimeout(initGSI, 200);
