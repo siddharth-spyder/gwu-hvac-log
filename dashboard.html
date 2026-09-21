@@ -852,17 +852,17 @@ function updateTiles() {
 
     var dateRows = FILTERED.filter(function(r) { return normalizeDate(r[COL.date]||"") === activeDate; });
 
-  document.getElementById("t-total").textContent   = FILTERED.length;
+   document.getElementById("t-total").textContent   = FILTERED.length;
   document.getElementById("t-on").textContent      = FILTERED.filter(function(r){ return (r[COL.status]||"") === "On"; }).length;
   document.getElementById("t-alarm").textContent   = FILTERED.filter(function(r){ return (r[COL.status]||"") === "Alarm"; }).length;
 
-  var bldgs   = new Set(dateRows.map(function(r){ return r[COL.building]; }));
-  var workers = new Set(dateRows.map(function(r){ return r[COL.workerEmail]; }));
+  var bldgs   = new Set(FILTERED.map(function(r){ return r[COL.building]; }));
+  var workers = new Set(FILTERED.map(function(r){ return r[COL.workerEmail]; }));
   document.getElementById("t-buildings").textContent = bldgs.size;
   document.getElementById("t-workers").textContent   = workers.size;
 
-  var sub = dateFilter ? dateFilter : "today";
-  document.getElementById("t-date-sub").textContent = "logged " + sub;
+  var sub = dateFilter ? dateFilter : "all dates";
+  document.getElementById("t-date-sub").textContent = "in view";
 }
 
 /* ── breakdown bar ── */
