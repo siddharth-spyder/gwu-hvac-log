@@ -140,14 +140,7 @@ body {
 .main { padding: 24px; max-width: 1400px; margin: 0 auto; }
 
 /* ── screens ── */
-.screen { display: none !important; }
-.screen.active { display: flex !important; }
-.screen.active.fullscreen { min-height: 100vh; align-items: center; justify-content: center; }
-.screen.active#screen-app { display: block !important; }
-#screen-signin, #screen-denied {
-  min-height: 100vh;
-  align-items: center; justify-content: center;
-}
+#screen-denied { align-items: center; justify-content: center; }
 .signin-card {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -441,7 +434,7 @@ var COL = { timestamp:0, date:1, zone:2, building:3, workerName:4, workerEmail:5
 </script>
 
 <!-- SCREENS -->
-<div id="screen-signin" class="screen active fullscreen">
+<div id="screen-signin" style="min-height:100vh;display:flex;align-items:center;justify-content:center;">
   <div class="signin-card">
     <div class="signin-logo"><span>GW</span></div>
     <h2>HVAC Supervisor Dashboard</h2>
@@ -453,7 +446,7 @@ var COL = { timestamp:0, date:1, zone:2, building:3, workerName:4, workerEmail:5
   </div>
 </div>
 
-<div id="screen-denied" class="screen fullscreen">
+<div id="screen-denied" style="min-height:100vh;display:none;align-items:center;justify-content:center;">
   <div class="denied-card">
     <div class="icon">🔒</div>
     <h2>Access Restricted</h2>
@@ -463,7 +456,7 @@ var COL = { timestamp:0, date:1, zone:2, building:3, workerName:4, workerEmail:5
   </div>
 </div>
 
-<div id="screen-app" class="screen">
+<div id="screen-app" style="display:none;">
   <!-- topbar -->
   <div class="topbar">
     <div class="topbar-logo">GW</div>
@@ -608,15 +601,9 @@ function signIn() {
   tokenClient.requestAccessToken({ prompt: "" });
 }
 function showScreen(id) {
-  ["screen-signin","screen-denied","screen-app"].forEach(function(s) {
-    var el = document.getElementById(s);
-    if (!el) return;
-    if (s === id) {
-      el.classList.add("active");
-    } else {
-      el.classList.remove("active");
-    }
-  });
+  document.getElementById("screen-signin").style.display = (id === "screen-signin") ? "flex"  : "none";
+  document.getElementById("screen-denied").style.display = (id === "screen-denied") ? "flex"  : "none";
+  document.getElementById("screen-app").style.display    = (id === "screen-app")    ? "block" : "none";
 }
 
 function signOut() {
