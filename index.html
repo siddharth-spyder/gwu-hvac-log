@@ -189,6 +189,73 @@
   var MASTER_SHEET_ID  = "10Xtba501JP-_BEdVGkH5UM0N5WvY2dRBPSTyWMYmqvU";
   var GEOCODING_KEY    = "AIzaSyDNm22BNboy-7lsx--VfReXSDZzm5ha2ng";
 
+/* ══════════ ZONE MAPPING ══════════ */
+var ZONES = {
+  "Zone 1": {
+    color: "#002147",
+    buildings: [
+      { name: "Academic Center (Phillips Hall / Rome Hall / Smith Hall of Art)", address: "801A/801B/801C 22nd St NW, DC" },
+      { name: "District House",                                                  address: "2121 H St NW, DC" },
+      { name: "Milken Institute School of Public Health (MPA)",                  address: "950 New Hampshire Ave NW, DC" },
+      { name: "Ross Hall",                                                        address: "2300 I St NW, DC" },
+      { name: "Ross Hall - CUP",                                                 address: "2300 I St NW, DC" }
+    ]
+  },
+  "Zone 2": {
+    color: "#1a6b3c",
+    buildings: [
+      { name: "Amsterdam Hall",                          address: "2350 H St NW, DC" },
+      { name: "2206 F Street",                           address: "2206 F St NW, DC" },
+      { name: "2208 F Street",                           address: "2208 F St NW, DC" },
+      { name: "Lerner Health and Wellness",              address: "2301 G St NW, DC" },
+      { name: "522 22nd Street",                         address: "522 22nd St NW, DC" },
+      { name: "Smith Center",                            address: "600 22nd St NW, DC" },
+      { name: "Townhouse Row (A-H)",                     address: "607A-607H 23rd St NW, DC" },
+      { name: "Shenkman Hall",                           address: "616 23rd St NW, DC" },
+      { name: "Women's Basketball (617 22nd St)",        address: "617 22nd St NW, DC" },
+      { name: "Tompkins Hall",                           address: "725 23rd St NW, DC" },
+      { name: "Madison Hall",                            address: "736 22nd St NW, DC" },
+      { name: "University Student Center (Marvin Center)", address: "800 21st St NW, DC" }
+    ]
+  },
+  "Zone 3": {
+    color: "#92400E",
+    buildings: [
+      { name: "Potomac House",                           address: "2021 F St NW, DC" },
+      { name: "Building JJ (JJ House)",                  address: "2031 F St NW, DC" },
+      { name: "2033-37 F Street",                        address: "2035 F St NW, DC" },
+      { name: "Dakota Hall",                             address: "2100 F St NW, DC" },
+      { name: "2109 F Street (\"Quigley's\")",           address: "2109 F St NW, DC" },
+      { name: "Guthridge Hall",                          address: "2115 F St NW, DC" },
+      { name: "Gelman Library",                          address: "2130 H St NW, DC" },
+      { name: "South Hall",                              address: "2135 F St NW, DC" },
+      { name: "2144 F Street (Executive Housing)",       address: "2144 F St NW, DC" },
+      { name: "Funger Hall",                             address: "2201 G St NW, DC" },
+      { name: "Duques Hall",                             address: "2201 G St NW, DC" },
+      { name: "Francis Scott Key Hall",                  address: "600 20th St NW, DC" },
+      { name: "607 21st Street",                         address: "607 21st St NW, DC" },
+      { name: "Davis-Hodgkins House (Building AM)",      address: "609 21st St NW, DC" },
+      { name: "Strong Hall",                             address: "620 21st St NW, DC" },
+      { name: "Cisneros Hispanic Leadership Institute",  address: "DC" }
+    ]
+  },
+  "Zone 4": {
+    color: "#5B21B6",
+    buildings: [
+      { name: "Thurston Hall",                                                      address: "1900 F St NW, DC" },
+      { name: "1922 F Street",                                                      address: "1922 F St NW, DC" },
+      { name: "Elliott School",                                                     address: "1957 E St NW, DC" },
+      { name: "Lisner Hall",                                                        address: "2023 G St NW, DC" },
+      { name: "Law Learning Center",                                                address: "2028 G St NW, DC" },
+      { name: "Bell Hall",                                                          address: "2029 G St NW, DC" },
+      { name: "Corcoran School of the Arts & Design (Corcoran Gallery of Art bldg)", address: "500 17th St NW, DC" },
+      { name: "Mitchell Hall",                                                      address: "514 19th St NW, DC" },
+      { name: "Jacob Burns Law Library",                                            address: "716 20th St NW, DC" },
+      { name: "Media and Public Affairs",                                           address: "805 21st St NW, DC" }
+    ]
+  }
+};
+
   /* ══════════ CONSTANTS ══════════ */
   var STATUS_OPTIONS = ["On", "Off", "Alarm", "Loto", "Out of Service", "N/A"];
   var SHEETS_BASE    = "https://sheets.googleapis.com/v4/spreadsheets";
@@ -440,6 +507,19 @@
   }
 
   /* ══════════ SUBMIT ══════════ */
+
+function getZone(buildingName) {
+  for (var zoneName in ZONES) {
+    var buildings = ZONES[zoneName].buildings;
+    for (var i = 0; i < buildings.length; i++) {
+      if (buildings[i].name.trim().toLowerCase() === buildingName.trim().toLowerCase()) {
+        return zoneName;
+      }
+    }
+  }
+  return "Unknown";
+}
+
   function submitForm() {
     var missing = ASSETS.filter(function(a) { return !statusMap[a.id]; });
     if (missing.length) {
@@ -502,13 +582,14 @@
         .then(function(data) {
           var hasHeaders = data.values && data.values[0] && data.values[0][0] === "Timestamp";
           var headerPromise = hasHeaders ? Promise.resolve() : sheetsAppend(MASTER_SHEET_ID, "Sheet1", [[
-            "Timestamp", "Date", "Building", "Worker Name", "Worker Email",
+            "Timestamp", "Date", "Zone", "Building", "Worker Name", "Worker Email",
             "Asset ID", "Asset Group", "Description", "Status", "Values", "Notes", "Location"
           ]]);
           return headerPromise.then(function() {
+            var zone = getZone(buildingName);
             var rows = assets.map(function(a) {
               return [
-                SCAN_TIME, DATE_TODAY, buildingName,
+                SCAN_TIME, DATE_TODAY, zone, buildingName,
                 WORKER_NAME, WORKER_EMAIL,
                 a.id, a.group, a.description, a.status,
                 a.values, a.notes, locationValue
