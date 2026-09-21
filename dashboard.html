@@ -1,0 +1,880 @@
+<title>GWU HVAC Dashboard</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap">
+<style>
+/* ── tokens ── */
+:root {
+  --bg:        #f8f9fc;
+  --surface:   #ffffff;
+  --surface2:  #f0f2f7;
+  --border:    #e2e5ed;
+  --text:      #0d1117;
+  --text2:     #4b5263;
+  --text3:     #8892a4;
+  --navy:      #002147;
+  --navy-mid:  #003166;
+  --accent:    #f5c518;
+  --z1:        #002147;
+  --z2:        #1a6b3c;
+  --z3:        #92400E;
+  --z4:        #5B21B6;
+  --on:        #16a34a;
+  --on-bg:     #dcfce7;
+  --off:       #ca8a04;
+  --off-bg:    #fef9c3;
+  --alarm:     #dc2626;
+  --alarm-bg:  #fee2e2;
+  --loto:      #ea580c;
+  --loto-bg:   #ffedd5;
+  --oos:       #6b7280;
+  --oos-bg:    #f3f4f6;
+  --na:        #9ca3af;
+  --na-bg:     #f9fafb;
+  --shadow:    0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.04);
+  --shadow-md: 0 4px 12px rgba(0,0,0,.10);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg:       #0d1117;
+    --surface:  #161b22;
+    --surface2: #1c2230;
+    --border:   #2d3444;
+    --text:     #e6edf3;
+    --text2:    #8d96a7;
+    --text3:    #5a6478;
+    --navy:     #1a4a7a;
+    --navy-mid: #2260a0;
+    --on-bg:    #0f2a1a;
+    --off-bg:   #2a230a;
+    --alarm-bg: #2a0f0f;
+    --loto-bg:  #2a1500;
+    --oos-bg:   #1c2230;
+    --na-bg:    #161b22;
+    --shadow:   0 1px 3px rgba(0,0,0,.3);
+    --shadow-md:0 4px 12px rgba(0,0,0,.4);
+  }
+}
+:root[data-theme="dark"] {
+  --bg:       #0d1117;
+  --surface:  #161b22;
+  --surface2: #1c2230;
+  --border:   #2d3444;
+  --text:     #e6edf3;
+  --text2:    #8d96a7;
+  --text3:    #5a6478;
+  --navy:     #1a4a7a;
+  --navy-mid: #2260a0;
+  --on-bg:    #0f2a1a;
+  --off-bg:   #2a230a;
+  --alarm-bg: #2a0f0f;
+  --loto-bg:  #2a1500;
+  --oos-bg:   #1c2230;
+  --na-bg:    #161b22;
+  --shadow:   0 1px 3px rgba(0,0,0,.3);
+  --shadow-md:0 4px 12px rgba(0,0,0,.4);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 14px;
+  background: var(--bg);
+  color: var(--text);
+  padding-inline: 0;
+  padding-block: 0;
+  min-height: 100%;
+}
+
+/* ── header ── */
+.topbar {
+  background: #002147;
+  color: #fff;
+  padding: 0 24px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  position: sticky;
+  top: env(safe-area-inset-top, 0px);
+  z-index: 100;
+  box-shadow: 0 1px 0 rgba(255,255,255,.08);
+}
+.topbar-logo {
+  width: 32px; height: 32px;
+  background: #f5c518;
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'DM Sans', sans-serif;
+  font-weight: 700; font-size: 13px;
+  color: #002147;
+  flex-shrink: 0;
+}
+.topbar-title {
+  font-family: 'DM Sans', sans-serif;
+  font-weight: 600; font-size: 15px;
+  letter-spacing: -.01em;
+  flex: 1;
+}
+.topbar-subtitle { font-size: 12px; color: rgba(255,255,255,.55); }
+.topbar-user {
+  display: flex; align-items: center; gap: 10px;
+  font-size: 13px; color: rgba(255,255,255,.8);
+}
+.topbar-avatar {
+  width: 28px; height: 28px; border-radius: 50%;
+  background: rgba(255,255,255,.15);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 600; color: #fff;
+}
+.sign-out-btn {
+  background: rgba(255,255,255,.12);
+  border: 1px solid rgba(255,255,255,.2);
+  color: #fff; border-radius: 6px;
+  padding: 4px 10px; font-size: 12px; cursor: pointer;
+  font-family: 'Inter', sans-serif;
+  transition: background .15s;
+}
+.sign-out-btn:hover { background: rgba(255,255,255,.2); }
+
+/* ── main layout ── */
+.main { padding: 24px; max-width: 1400px; margin: 0 auto; }
+
+/* ── sign-in screen ── */
+#signin-screen {
+  min-height: calc(100vh - 56px);
+  display: flex; align-items: center; justify-content: center;
+}
+.signin-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 48px 40px;
+  text-align: center;
+  max-width: 400px;
+  width: 100%;
+  box-shadow: var(--shadow-md);
+}
+.signin-logo {
+  width: 56px; height: 56px;
+  background: #002147;
+  border-radius: 14px;
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 auto 20px;
+}
+.signin-logo span {
+  font-family: 'DM Sans', sans-serif;
+  font-weight: 700; font-size: 18px; color: #f5c518;
+}
+.signin-card h2 {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 22px; font-weight: 700;
+  margin-bottom: 6px; color: var(--text);
+}
+.signin-card p { color: var(--text2); font-size: 14px; margin-bottom: 28px; line-height: 1.5; }
+.google-btn {
+  display: flex; align-items: center; justify-content: center;
+  gap: 10px; width: 100%;
+  background: var(--surface); border: 1.5px solid var(--border);
+  border-radius: 10px; padding: 12px 20px;
+  font-size: 14px; font-weight: 500; color: var(--text);
+  cursor: pointer; font-family: 'Inter', sans-serif;
+  transition: box-shadow .15s, border-color .15s;
+}
+.google-btn:hover { box-shadow: var(--shadow-md); border-color: #aab; }
+.google-btn svg { width: 18px; height: 18px; flex-shrink: 0; }
+
+/* ── access denied ── */
+#denied-screen {
+  min-height: calc(100vh - 56px);
+  display: flex; align-items: center; justify-content: center;
+}
+.denied-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 48px 40px;
+  text-align: center;
+  max-width: 400px; width: 100%;
+}
+.denied-card .icon { font-size: 40px; margin-bottom: 16px; }
+.denied-card h2 { font-family: 'DM Sans', sans-serif; font-size: 20px; font-weight: 700; margin-bottom: 8px; }
+.denied-card p { color: var(--text2); font-size: 14px; }
+
+/* ── stat tiles ── */
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.tile {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px 18px;
+  box-shadow: var(--shadow);
+}
+.tile-label {
+  font-size: 11px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: .06em;
+  color: var(--text3); margin-bottom: 8px;
+}
+.tile-value {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 28px; font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--text); line-height: 1;
+}
+.tile-sub { font-size: 12px; color: var(--text2); margin-top: 4px; }
+.tile.alarm .tile-value { color: var(--alarm); }
+.tile.on .tile-value { color: var(--on); }
+
+/* ── zone badges ── */
+.zone-pills {
+  display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px;
+}
+.zone-pill {
+  display: flex; align-items: center; gap: 6px;
+  padding: 6px 12px; border-radius: 20px;
+  font-size: 12px; font-weight: 600;
+  border: 2px solid transparent;
+  cursor: pointer; transition: all .15s;
+  background: var(--surface2);
+  color: var(--text2);
+}
+.zone-pill .dot { width: 8px; height: 8px; border-radius: 50%; }
+.zone-pill.active { color: #fff; border-color: transparent; }
+.zone-pill[data-zone="all"].active { background: var(--navy); }
+.zone-pill[data-zone="Zone 1"].active { background: var(--z1); }
+.zone-pill[data-zone="Zone 2"].active { background: var(--z2); }
+.zone-pill[data-zone="Zone 3"].active { background: var(--z3); }
+.zone-pill[data-zone="Zone 4"].active { background: var(--z4); }
+
+/* ── filters ── */
+.filters {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px 16px;
+  display: flex; gap: 12px; flex-wrap: wrap;
+  align-items: center;
+  margin-bottom: 16px;
+  box-shadow: var(--shadow);
+}
+.filter-group { display: flex; flex-direction: column; gap: 4px; }
+.filter-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--text3); }
+.filter-select, .filter-input {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 6px 10px;
+  font-size: 13px; color: var(--text);
+  font-family: 'Inter', sans-serif;
+  outline: none; min-width: 150px;
+}
+.filter-select:focus, .filter-input:focus { border-color: #002147; }
+.filter-btn {
+  background: var(--navy);
+  color: #fff; border: none; border-radius: 7px;
+  padding: 7px 14px; font-size: 13px; font-weight: 500;
+  cursor: pointer; font-family: 'Inter', sans-serif;
+  align-self: flex-end; transition: background .15s;
+}
+.filter-btn:hover { background: var(--navy-mid); }
+.filter-btn.secondary {
+  background: var(--surface2); color: var(--text2);
+  border: 1px solid var(--border);
+}
+.filter-btn.secondary:hover { background: var(--border); }
+
+/* ── results bar ── */
+.results-bar {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 10px; flex-wrap: wrap; gap: 8px;
+}
+.results-count { font-size: 13px; color: var(--text2); }
+.results-count strong { color: var(--text); }
+.export-btn {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text2); border-radius: 7px;
+  padding: 5px 12px; font-size: 12px; font-weight: 500;
+  cursor: pointer; font-family: 'Inter', sans-serif;
+  display: flex; align-items: center; gap: 6px;
+  transition: all .15s;
+}
+.export-btn:hover { border-color: var(--navy); color: var(--navy); }
+
+/* ── table ── */
+.table-wrap {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+.table-scroll { overflow-x: auto; }
+table {
+  width: 100%; border-collapse: collapse;
+  font-size: 13px;
+}
+thead th {
+  background: var(--surface2);
+  padding: 10px 14px;
+  text-align: left;
+  font-size: 11px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: .05em;
+  color: var(--text3);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+  cursor: pointer; user-select: none;
+}
+thead th:hover { color: var(--text); }
+thead th .sort-arrow { margin-left: 4px; opacity: .4; }
+thead th.sorted .sort-arrow { opacity: 1; color: var(--navy); }
+tbody tr {
+  border-bottom: 1px solid var(--border);
+  transition: background .1s;
+}
+tbody tr:last-child { border-bottom: none; }
+tbody tr:hover { background: var(--surface2); }
+tbody td { padding: 10px 14px; color: var(--text); white-space: nowrap; }
+tbody td.wrap { white-space: normal; max-width: 200px; }
+
+.zone-tag {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 11px; font-weight: 600;
+  padding: 2px 8px; border-radius: 10px;
+  color: #fff; white-space: nowrap;
+}
+.zone-tag[data-zone="Zone 1"] { background: var(--z1); }
+.zone-tag[data-zone="Zone 2"] { background: var(--z2); }
+.zone-tag[data-zone="Zone 3"] { background: var(--z3); }
+.zone-tag[data-zone="Zone 4"] { background: var(--z4); }
+
+.status-pill {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 11px; font-weight: 600;
+  padding: 3px 9px; border-radius: 10px;
+  white-space: nowrap;
+}
+.status-pill.On    { background: var(--on-bg);    color: var(--on);    }
+.status-pill.Off   { background: var(--off-bg);   color: var(--off);   }
+.status-pill.Alarm { background: var(--alarm-bg); color: var(--alarm); }
+.status-pill.Loto  { background: var(--loto-bg);  color: var(--loto);  }
+.status-pill.Out-of-Service { background: var(--oos-bg); color: var(--oos); }
+.status-pill.NA    { background: var(--na-bg);    color: var(--na);    }
+
+.no-data {
+  padding: 60px 20px; text-align: center; color: var(--text3);
+}
+.no-data .icon { font-size: 36px; margin-bottom: 12px; }
+.no-data p { font-size: 14px; }
+
+/* ── loading ── */
+.loading-overlay {
+  padding: 60px 20px; text-align: center; color: var(--text3);
+}
+.spinner {
+  width: 28px; height: 28px; border: 3px solid var(--border);
+  border-top-color: var(--navy); border-radius: 50%;
+  animation: spin .7s linear infinite;
+  margin: 0 auto 12px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── status breakdown bar ── */
+.breakdown {
+  display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 20px;
+}
+.breakdown-item {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 12px; color: var(--text2);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px; padding: 8px 12px;
+  box-shadow: var(--shadow);
+}
+.breakdown-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.breakdown-count { font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; }
+
+/* ── responsive ── */
+@media (max-width: 640px) {
+  .main { padding: 16px; }
+  .topbar { padding: 0 16px; }
+  .topbar-subtitle { display: none; }
+  .tile-value { font-size: 22px; }
+  .filters { flex-direction: column; }
+  .filter-select, .filter-input { min-width: 100%; }
+}
+</style>
+
+<!-- Google Identity Services -->
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+
+<!-- CONFIG -->
+<script>
+var GOOGLE_CLIENT_ID  = "YOUR_CLIENT_ID_HERE";
+var MASTER_SHEET_ID   = "10Xtba501JP-_BEdVGkH5UM0N5WvY2dRBPSTyWMYmqvU";
+var SHEETS_BASE       = "https://sheets.googleapis.com/v4/spreadsheets";
+var ACCESS_TOKEN      = null;
+
+/* ── SUPERVISOR ALLOWLIST ── add gwmail.gwu.edu emails below ── */
+var ALLOWED_EMAILS = [
+  "siddharth.saravanan@email.gwu.edu",   /* supervisor 1 */
+  "seanj@email.gwu.edu",   /* supervisor 2 */
+  "rudy.whittembury@email.gwu.edu",   /* supervisor 3 */
+];
+
+var ZONES = {
+  "Zone 1": { color: "#002147", buildings: ["Academic Center (Phillips Hall / Rome Hall / Smith Hall of Art)","District House","Milken Institute School of Public Health (MPA)","Ross Hall","Ross Hall - CUP"] },
+  "Zone 2": { color: "#1a6b3c", buildings: ["Amsterdam Hall","2206 F Street","2208 F Street","Lerner Health and Wellness","522 22nd Street","Smith Center","Townhouse Row (A-H)","Shenkman Hall","Women's Basketball (617 22nd St)","Tompkins Hall","Madison Hall","University Student Center (Marvin Center)"] },
+  "Zone 3": { color: "#92400E", buildings: ["Potomac House","Building JJ (JJ House)","2033-37 F Street","Dakota Hall","2109 F Street (\"Quigley's\")","Guthridge Hall","Gelman Library","South Hall","2144 F Street (Executive Housing)","Funger Hall","Duques Hall","Francis Scott Key Hall","607 21st Street","Davis-Hodgkins House (Building AM)","Strong Hall","Cisneros Hispanic Leadership Institute"] },
+  "Zone 4": { color: "#5B21B6", buildings: ["Thurston Hall","1922 F Street","Elliott School","Lisner Hall","Law Learning Center","Bell Hall","Corcoran School of the Arts & Design (Corcoran Gallery of Art bldg)","Mitchell Hall","Jacob Burns Law Library","Media and Public Affairs"] }
+};
+
+var ALL_ROWS = [];
+var FILTERED = [];
+var SORT_COL = 0;
+var SORT_ASC = true;
+var COL = { timestamp:0, date:1, zone:2, building:3, workerName:4, workerEmail:5, assetId:6, assetGroup:7, desc:8, status:9, values:10, notes:11, location:12 };
+</script>
+
+<!-- SCREENS -->
+<div id="signin-screen">
+  <div class="signin-card">
+    <div class="signin-logo"><span>GW</span></div>
+    <h2>HVAC Supervisor Dashboard</h2>
+    <p>Sign in with your GWU Google account to view asset logs and analytics.</p>
+    <button class="google-btn" onclick="signIn()">
+      <svg viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/><path fill="none" d="M0 0h48v48H0z"/></svg>
+      Sign in with Google
+    </button>
+  </div>
+</div>
+
+<div id="denied-screen" hidden>
+  <div class="denied-card">
+    <div class="icon">🔒</div>
+    <h2>Access Restricted</h2>
+    <p>Your account doesn't have supervisor access to this dashboard. Contact your administrator to request access.</p>
+    <br>
+    <button class="sign-out-btn" style="margin:0 auto;display:block;" onclick="signOut()">Sign out</button>
+  </div>
+</div>
+
+<div id="app" hidden>
+  <!-- topbar -->
+  <div class="topbar">
+    <div class="topbar-logo">GW</div>
+    <div>
+      <div class="topbar-title">HVAC Dashboard</div>
+      <div class="topbar-subtitle">Facilities Management · Daily Asset Logs</div>
+    </div>
+    <div class="topbar-user">
+      <div class="topbar-avatar" id="user-avatar"></div>
+      <span id="user-name-top"></span>
+      <button class="sign-out-btn" onclick="signOut()">Sign out</button>
+    </div>
+  </div>
+
+  <div class="main">
+    <!-- stat tiles -->
+    <div class="tiles" id="tiles">
+      <div class="tile"><div class="tile-label">Total Logs</div><div class="tile-value" id="t-total">—</div><div class="tile-sub">all time</div></div>
+      <div class="tile on"><div class="tile-label">On</div><div class="tile-value" id="t-on">—</div><div class="tile-sub">assets running</div></div>
+      <div class="tile alarm"><div class="tile-label">Alarms</div><div class="tile-value" id="t-alarm">—</div><div class="tile-sub">need attention</div></div>
+      <div class="tile"><div class="tile-label">Buildings Today</div><div class="tile-value" id="t-buildings">—</div><div class="tile-sub" id="t-date-sub">logged today</div></div>
+      <div class="tile"><div class="tile-label">Workers Today</div><div class="tile-value" id="t-workers">—</div><div class="tile-sub">active today</div></div>
+    </div>
+
+    <!-- zone filter pills -->
+    <div class="zone-pills">
+      <div class="zone-pill active" data-zone="all" onclick="setZone('all',this)">
+        <span>All Zones</span>
+      </div>
+      <div class="zone-pill" data-zone="Zone 1" onclick="setZone('Zone 1',this)">
+        <span class="dot" style="background:#002147"></span><span>Zone 1</span>
+      </div>
+      <div class="zone-pill" data-zone="Zone 2" onclick="setZone('Zone 2',this)">
+        <span class="dot" style="background:#1a6b3c"></span><span>Zone 2</span>
+      </div>
+      <div class="zone-pill" data-zone="Zone 3" onclick="setZone('Zone 3',this)">
+        <span class="dot" style="background:#92400E"></span><span>Zone 3</span>
+      </div>
+      <div class="zone-pill" data-zone="Zone 4" onclick="setZone('Zone 4',this)">
+        <span class="dot" style="background:#5B21B6"></span><span>Zone 4</span>
+      </div>
+    </div>
+
+    <!-- filters -->
+    <div class="filters">
+      <div class="filter-group">
+        <div class="filter-label">Building</div>
+        <select class="filter-select" id="f-building">
+          <option value="">All Buildings</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <div class="filter-label">Status</div>
+        <select class="filter-select" id="f-status">
+          <option value="">All Statuses</option>
+          <option>On</option><option>Off</option><option>Alarm</option>
+          <option>Loto</option><option>Out of Service</option><option>N/A</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <div class="filter-label">Date</div>
+        <input type="date" class="filter-input" id="f-date">
+      </div>
+      <div class="filter-group">
+        <div class="filter-label">Search</div>
+        <input type="text" class="filter-input" id="f-search" placeholder="Asset ID, worker…" style="min-width:180px;">
+      </div>
+      <button class="filter-btn" onclick="applyFilters()">Apply</button>
+      <button class="filter-btn secondary" onclick="clearFilters()">Clear</button>
+    </div>
+
+    <!-- status breakdown -->
+    <div class="breakdown" id="breakdown"></div>
+
+    <!-- results bar -->
+    <div class="results-bar">
+      <div class="results-count" id="results-count"></div>
+      <button class="export-btn" onclick="exportCSV()">
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M8 12L3 7h3V2h4v5h3L8 12zm-5 2h10v1.5H3V14z"/></svg>
+        Export CSV
+      </button>
+    </div>
+
+    <!-- table -->
+    <div class="table-wrap">
+      <div id="loading-area" class="loading-overlay">
+        <div class="spinner"></div>
+        <div>Loading logs…</div>
+      </div>
+      <div id="table-area" hidden>
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th onclick="sortBy(0)">Timestamp <span class="sort-arrow">↕</span></th>
+                <th onclick="sortBy(2)">Zone <span class="sort-arrow">↕</span></th>
+                <th onclick="sortBy(3)">Building <span class="sort-arrow">↕</span></th>
+                <th onclick="sortBy(4)">Worker <span class="sort-arrow">↕</span></th>
+                <th onclick="sortBy(6)">Asset ID <span class="sort-arrow">↕</span></th>
+                <th onclick="sortBy(7)">Group <span class="sort-arrow">↕</span></th>
+                <th onclick="sortBy(8)">Description <span class="sort-arrow">↕</span></th>
+                <th onclick="sortBy(9)">Status <span class="sort-arrow">↕</span></th>
+                <th onclick="sortBy(10)">Values <span class="sort-arrow">↕</span></th>
+                <th onclick="sortBy(11)">Notes <span class="sort-arrow">↕</span></th>
+              </tr>
+            </thead>
+            <tbody id="table-body"></tbody>
+          </table>
+        </div>
+        <div id="no-data" class="no-data" hidden>
+          <div class="icon">📋</div>
+          <p>No records match your filters.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ── OAuth ── */
+var tokenClient;
+function initGSI() {
+  tokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: GOOGLE_CLIENT_ID,
+    scope: [
+      "https://www.googleapis.com/auth/spreadsheets.readonly",
+      "https://www.googleapis.com/auth/userinfo.profile",
+      "https://www.googleapis.com/auth/userinfo.email"
+    ].join(" "),
+    prompt: "",
+    callback: handleToken
+  });
+}
+window.addEventListener("load", function() {
+  if (window.google && google.accounts) initGSI();
+  else document.querySelector("script[src*='gsi']").addEventListener("load", initGSI);
+});
+
+function signIn() { tokenClient.requestAccessToken({ prompt: "" }); }
+function signOut() {
+  ACCESS_TOKEN = null;
+  document.getElementById("app").hidden = true;
+  document.getElementById("denied-screen").hidden = true;
+  document.getElementById("signin-screen").hidden = false;
+}
+
+function handleToken(resp) {
+  if (resp.error) return;
+  ACCESS_TOKEN = resp.access_token;
+  fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
+    headers: { Authorization: "Bearer " + ACCESS_TOKEN }
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(u) {
+    var email = (u.email || "").toLowerCase();
+    var allowed = ALLOWED_EMAILS.some(function(e) {
+      return e && e.toLowerCase() === email;
+    });
+    // also allow any @gwmail.gwu.edu — remove this line to restrict to allowlist only
+    if (!allowed && email.endsWith("@gwmail.gwu.edu")) allowed = true;
+
+    if (!allowed) {
+      document.getElementById("signin-screen").hidden = true;
+      document.getElementById("denied-screen").hidden = false;
+      return;
+    }
+    // show app
+    document.getElementById("signin-screen").hidden = true;
+    var initials = ((u.given_name||"?")[0] + (u.family_name||"?")[0]).toUpperCase();
+    document.getElementById("user-avatar").textContent = initials;
+    document.getElementById("user-name-top").textContent = u.given_name || email;
+    document.getElementById("app").hidden = false;
+    loadData();
+  });
+}
+
+/* ── load data ── */
+function loadData() {
+  fetch(SHEETS_BASE + "/" + MASTER_SHEET_ID + "/values/Sheet1", {
+    headers: { Authorization: "Bearer " + ACCESS_TOKEN }
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    var rows = data.values || [];
+    if (rows.length > 1) rows = rows.slice(1); // skip header
+    ALL_ROWS = rows;
+    populateBuildingFilter();
+    applyFilters();
+    document.getElementById("loading-area").hidden = true;
+    document.getElementById("table-area").hidden = false;
+  })
+  .catch(function(e) {
+    document.getElementById("loading-area").innerHTML = '<div style="color:var(--alarm);padding:40px;text-align:center">Failed to load data. Check your access and try again.</div>';
+  });
+}
+
+/* ── zone filter ── */
+var activeZone = "all";
+function setZone(zone, el) {
+  activeZone = zone;
+  document.querySelectorAll(".zone-pill").forEach(function(p) { p.classList.remove("active"); });
+  el.classList.add("active");
+  populateBuildingFilter();
+  applyFilters();
+}
+
+function populateBuildingFilter() {
+  var sel = document.getElementById("f-building");
+  var prev = sel.value;
+  sel.innerHTML = '<option value="">All Buildings</option>';
+  var buildings = [];
+  if (activeZone === "all") {
+    Object.values(ZONES).forEach(function(z) { buildings = buildings.concat(z.buildings); });
+  } else if (ZONES[activeZone]) {
+    buildings = ZONES[activeZone].buildings;
+  }
+  // also collect from actual data
+  var seen = {};
+  ALL_ROWS.forEach(function(r) {
+    var b = r[COL.building] || "";
+    if (b && !seen[b]) { seen[b] = true; }
+  });
+  var allBuildings = Object.keys(seen).sort();
+  allBuildings.forEach(function(b) {
+    if (activeZone !== "all") {
+      var inZone = (ZONES[activeZone]||{buildings:[]}).buildings.some(function(z) {
+        return z.toLowerCase() === b.toLowerCase();
+      });
+      if (!inZone) return;
+    }
+    var opt = document.createElement("option");
+    opt.value = b; opt.textContent = b;
+    sel.appendChild(opt);
+  });
+  if (prev) sel.value = prev;
+}
+
+/* ── filters ── */
+function applyFilters() {
+  var zone     = activeZone;
+  var building = document.getElementById("f-building").value.toLowerCase();
+  var status   = document.getElementById("f-status").value.toLowerCase();
+  var date     = document.getElementById("f-date").value;
+  var search   = document.getElementById("f-search").value.toLowerCase();
+
+  FILTERED = ALL_ROWS.filter(function(r) {
+    var rZone     = (r[COL.zone]     || "").toLowerCase();
+    var rBuilding = (r[COL.building] || "").toLowerCase();
+    var rStatus   = (r[COL.status]   || "").toLowerCase();
+    var rDate     = (r[COL.date]     || "");
+    var rWorker   = (r[COL.workerName] || "").toLowerCase();
+    var rAsset    = (r[COL.assetId]  || "").toLowerCase();
+    var rEmail    = (r[COL.workerEmail]||"").toLowerCase();
+
+    if (zone !== "all" && rZone !== zone.toLowerCase()) return false;
+    if (building && rBuilding !== building) return false;
+    if (status && rStatus !== status) return false;
+    if (date && rDate !== date) return false;
+    if (search && !rWorker.includes(search) && !rAsset.includes(search) &&
+        !rBuilding.includes(search) && !rEmail.includes(search)) return false;
+    return true;
+  });
+
+  sortData();
+  renderTable();
+  updateTiles();
+  updateBreakdown();
+}
+
+function clearFilters() {
+  document.getElementById("f-building").value = "";
+  document.getElementById("f-status").value = "";
+  document.getElementById("f-date").value = "";
+  document.getElementById("f-search").value = "";
+  activeZone = "all";
+  document.querySelectorAll(".zone-pill").forEach(function(p) { p.classList.remove("active"); });
+  document.querySelector(".zone-pill[data-zone='all']").classList.add("active");
+  populateBuildingFilter();
+  applyFilters();
+}
+
+/* ── sort ── */
+function sortBy(col) {
+  if (SORT_COL === col) SORT_ASC = !SORT_ASC;
+  else { SORT_COL = col; SORT_ASC = true; }
+  document.querySelectorAll("thead th").forEach(function(th, i) {
+    th.classList.toggle("sorted", i === col);
+    var arrow = th.querySelector(".sort-arrow");
+    if (arrow) arrow.textContent = (i === col) ? (SORT_ASC ? "↑" : "↓") : "↕";
+  });
+  sortData();
+  renderTable();
+}
+function sortData() {
+  FILTERED.sort(function(a, b) {
+    var av = (a[SORT_COL] || "").toLowerCase();
+    var bv = (b[SORT_COL] || "").toLowerCase();
+    return SORT_ASC ? av.localeCompare(bv) : bv.localeCompare(av);
+  });
+}
+
+/* ── render ── */
+function statusClass(s) {
+  if (!s) return "NA";
+  s = s.trim();
+  if (s === "Out of Service") return "Out-of-Service";
+  if (s === "N/A") return "NA";
+  return s;
+}
+
+function renderTable() {
+  var tbody = document.getElementById("table-body");
+  var noData = document.getElementById("no-data");
+  document.getElementById("results-count").innerHTML =
+    "Showing <strong>" + FILTERED.length + "</strong> of <strong>" + ALL_ROWS.length + "</strong> records";
+
+  if (!FILTERED.length) {
+    tbody.innerHTML = "";
+    noData.hidden = false;
+    return;
+  }
+  noData.hidden = true;
+
+  var html = "";
+  FILTERED.forEach(function(r) {
+    var zone    = r[COL.zone]     || "";
+    var ts      = r[COL.timestamp]|| "";
+    var bldg    = r[COL.building] || "";
+    var worker  = r[COL.workerName]|| "";
+    var assetId = r[COL.assetId]  || "";
+    var group   = r[COL.assetGroup]|| "";
+    var desc    = r[COL.desc]     || "";
+    var status  = r[COL.status]   || "";
+    var values  = r[COL.values]   || "";
+    var notes   = r[COL.notes]    || "";
+    var sc = statusClass(status);
+
+    html += "<tr>" +
+      "<td>" + esc(ts) + "</td>" +
+      "<td>" + (zone ? '<span class="zone-tag" data-zone="' + esc(zone) + '">' + esc(zone) + '</span>' : "") + "</td>" +
+      "<td>" + esc(bldg) + "</td>" +
+      "<td>" + esc(worker) + "</td>" +
+      "<td><code style='font-size:11px;color:var(--text2)'>" + esc(assetId) + "</code></td>" +
+      "<td>" + esc(group) + "</td>" +
+      '<td class="wrap">' + esc(desc) + "</td>" +
+      '<td><span class="status-pill ' + sc + '">' + esc(status||"N/A") + "</span></td>" +
+      "<td>" + esc(values) + "</td>" +
+      '<td class="wrap">' + esc(notes) + "</td>" +
+      "</tr>";
+  });
+  tbody.innerHTML = html;
+}
+
+function esc(s) {
+  return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+}
+
+/* ── tiles ── */
+function updateTiles() {
+  var today = new Date().toLocaleDateString("en-CA"); // YYYY-MM-DD
+  var todayRows = ALL_ROWS.filter(function(r) { return (r[COL.date]||"") === today; });
+
+  document.getElementById("t-total").textContent   = ALL_ROWS.length;
+  document.getElementById("t-on").textContent      = ALL_ROWS.filter(function(r){ return (r[COL.status]||"") === "On"; }).length;
+  document.getElementById("t-alarm").textContent   = ALL_ROWS.filter(function(r){ return (r[COL.status]||"") === "Alarm"; }).length;
+
+  var bldgsToday = new Set(todayRows.map(function(r){ return r[COL.building]; }));
+  var workersToday = new Set(todayRows.map(function(r){ return r[COL.workerEmail]; }));
+  document.getElementById("t-buildings").textContent = bldgsToday.size;
+  document.getElementById("t-workers").textContent   = workersToday.size;
+}
+
+/* ── breakdown bar ── */
+function updateBreakdown() {
+  var counts = { "On":0, "Off":0, "Alarm":0, "Loto":0, "Out of Service":0, "N/A":0 };
+  FILTERED.forEach(function(r) {
+    var s = r[COL.status] || "N/A";
+    if (counts[s] !== undefined) counts[s]++;
+    else counts["N/A"]++;
+  });
+  var colors = { "On":"#16a34a","Off":"#ca8a04","Alarm":"#dc2626","Loto":"#ea580c","Out of Service":"#6b7280","N/A":"#9ca3af" };
+  var html = "";
+  Object.keys(counts).forEach(function(s) {
+    html += '<div class="breakdown-item">' +
+      '<span class="breakdown-dot" style="background:' + colors[s] + '"></span>' +
+      '<span>' + s + '</span>' +
+      '<span class="breakdown-count">' + counts[s] + '</span>' +
+      '</div>';
+  });
+  document.getElementById("breakdown").innerHTML = html;
+}
+
+/* ── export CSV ── */
+function exportCSV() {
+  var headers = ["Timestamp","Date","Zone","Building","Worker Name","Worker Email","Asset ID","Asset Group","Description","Status","Values","Notes","Location"];
+  var csv = [headers.join(",")];
+  FILTERED.forEach(function(r) {
+    csv.push(headers.map(function(h, i) {
+      var v = (r[i] || "").toString().replace(/"/g,'""');
+      return '"' + v + '"';
+    }).join(","));
+  });
+  var blob = new Blob([csv.join("\n")], { type: "text/csv" });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement("a");
+  a.href = url; a.download = "hvac-logs-" + new Date().toLocaleDateString("en-CA") + ".csv";
+  a.click(); URL.revokeObjectURL(url);
+}
+
+/* ── search on enter ── */
+document.getElementById("f-search").addEventListener("keydown", function(e) {
+  if (e.key === "Enter") applyFilters();
+});
+</script>
