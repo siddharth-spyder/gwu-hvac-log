@@ -410,7 +410,7 @@ tbody td.wrap { white-space: normal; max-width: 200px; }
 </style>
 
 <!-- Google Identity Services -->
-<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="https://accounts.google.com/gsi/client"></script>
 
 <!-- CONFIG -->
 <script>
@@ -422,7 +422,7 @@ var ACCESS_TOKEN      = null;
 /* ── SUPERVISOR ALLOWLIST ── add gwmail.gwu.edu emails below ── */
 var ALLOWED_EMAILS = [
   "siddharth.saravanan@email.gwu.edu",   /* supervisor 1 */
-  "seanj@email.gwu.edu",   /* supervisor 2 */
+  "seanj.email.gwu.edu",   /* supervisor 2 */
   "rudy.whittembury@email.gwu.edu",   /* supervisor 3 */
 ];
 
@@ -586,6 +586,10 @@ var COL = { timestamp:0, date:1, zone:2, building:3, workerName:4, workerEmail:5
 /* ── OAuth ── */
 var tokenClient;
 function initGSI() {
+  if (!window.google || !google.accounts || !google.accounts.oauth2) {
+    setTimeout(initGSI, 100);
+    return;
+  }
   tokenClient = google.accounts.oauth2.initTokenClient({
     client_id: GOOGLE_CLIENT_ID,
     scope: [
@@ -597,12 +601,12 @@ function initGSI() {
     callback: handleToken
   });
 }
-window.addEventListener("load", function() {
-  if (window.google && google.accounts) initGSI();
-  else document.querySelector("script[src*='gsi']").addEventListener("load", initGSI);
-});
+document.addEventListener("DOMContentLoaded", initGSI);
 
-function signIn() { tokenClient.requestAccessToken({ prompt: "" }); }
+function signIn() {
+  if (!tokenClient) { initGSI(); setTimeout(function(){ if(tokenClient) tokenClient.requestAccessToken({ prompt: "" }); }, 300); return; }
+  tokenClient.requestAccessToken({ prompt: "" });
+}
 function signOut() {
   ACCESS_TOKEN = null;
   document.getElementById("app").hidden = true;
