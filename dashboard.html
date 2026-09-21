@@ -139,9 +139,11 @@ body {
 /* ── main layout ── */
 .main { padding: 24px; max-width: 1400px; margin: 0 auto; }
 
-/* ── sign-in screen ── */
-#signin-screen {
-  min-height: calc(100vh - 56px);
+/* ── screens ── */
+.screen { display: none; }
+.screen.active { display: block; }
+#screen-signin, #screen-denied {
+  min-height: 100vh;
   display: flex; align-items: center; justify-content: center;
 }
 .signin-card {
@@ -184,10 +186,6 @@ body {
 .google-btn svg { width: 18px; height: 18px; flex-shrink: 0; }
 
 /* ── access denied ── */
-#denied-screen {
-  min-height: calc(100vh - 56px);
-  display: flex; align-items: center; justify-content: center;
-}
 .denied-card {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -422,7 +420,7 @@ var ACCESS_TOKEN      = null;
 /* ── SUPERVISOR ALLOWLIST ── add gwmail.gwu.edu emails below ── */
 var ALLOWED_EMAILS = [
   "siddharth.saravanan@email.gwu.edu",   /* supervisor 1 */
-  "seanj.email.gwu.edu",   /* supervisor 2 */
+  "seanj@email.gwu.edu",   /* supervisor 2 */
   "rudy.whittembury@email.gwu.edu",   /* supervisor 3 */
 ];
 
@@ -441,7 +439,7 @@ var COL = { timestamp:0, date:1, zone:2, building:3, workerName:4, workerEmail:5
 </script>
 
 <!-- SCREENS -->
-<div id="signin-screen">
+<div id="screen-signin" class="screen active">
   <div class="signin-card">
     <div class="signin-logo"><span>GW</span></div>
     <h2>HVAC Supervisor Dashboard</h2>
@@ -453,7 +451,7 @@ var COL = { timestamp:0, date:1, zone:2, building:3, workerName:4, workerEmail:5
   </div>
 </div>
 
-<div id="denied-screen" hidden>
+<div id="screen-denied" class="screen">
   <div class="denied-card">
     <div class="icon">🔒</div>
     <h2>Access Restricted</h2>
@@ -463,7 +461,7 @@ var COL = { timestamp:0, date:1, zone:2, building:3, workerName:4, workerEmail:5
   </div>
 </div>
 
-<div id="app" hidden>
+<div id="screen-app" class="screen">
   <!-- topbar -->
   <div class="topbar">
     <div class="topbar-logo">GW</div>
@@ -607,11 +605,16 @@ function signIn() {
   if (!tokenClient) { initGSI(); setTimeout(function(){ if(tokenClient) tokenClient.requestAccessToken({ prompt: "" }); }, 300); return; }
   tokenClient.requestAccessToken({ prompt: "" });
 }
+function showScreen(id) {
+  ["screen-signin","screen-denied","screen-app"].forEach(function(s) {
+    var el = document.getElementById(s);
+    if (el) el.classList.toggle("active", s === id);
+  });
+}
+
 function signOut() {
   ACCESS_TOKEN = null;
-  document.getElementById("app").hidden = true;
-  document.getElementById("denied-screen").hidden = true;
-  document.getElementById("signin-screen").hidden = false;
+  showScreen("screen-signin");
 }
 
 function handleToken(resp) {
@@ -630,16 +633,13 @@ function handleToken(resp) {
     if (!allowed && email.endsWith("@gwmail.gwu.edu")) allowed = true;
 
     if (!allowed) {
-      document.getElementById("signin-screen").hidden = true;
-      document.getElementById("denied-screen").hidden = false;
+      showScreen("screen-denied");
       return;
     }
-    // show app
-    document.getElementById("signin-screen").hidden = true;
     var initials = ((u.given_name||"?")[0] + (u.family_name||"?")[0]).toUpperCase();
     document.getElementById("user-avatar").textContent = initials;
     document.getElementById("user-name-top").textContent = u.given_name || email;
-    document.getElementById("app").hidden = false;
+    showScreen("screen-app");
     loadData();
   });
 }
@@ -705,6 +705,22 @@ function populateBuildingFilter() {
   if (prev) sel.value = prev;
 }
 
+/* ── date normalizer: converts M/D/YYYY or MM/DD/YYYY → YYYY-MM-DD ── */
+function normalizeDate(d) {
+  if (!d) return "";
+  // already ISO
+  if (/^\d{4}-\d{2}-\d{2}/.test(d)) return d.slice(0,10);
+  // M/D/YYYY or M/D/YY
+  var parts = d.split("/");
+  if (parts.length === 3) {
+    var m = parts[0].padStart(2,"0");
+    var day = parts[1].padStart(2,"0");
+    var yr = parts[2].length === 2 ? "20" + parts[2] : parts[2];
+    return yr + "-" + m + "-" + day;
+  }
+  return d;
+}
+
 /* ── filters ── */
 function applyFilters() {
   var zone     = activeZone;
@@ -717,17 +733,25 @@ function applyFilters() {
     var rZone     = (r[COL.zone]     || "").toLowerCase();
     var rBuilding = (r[COL.building] || "").toLowerCase();
     var rStatus   = (r[COL.status]   || "").toLowerCase();
-    var rDate     = (r[COL.date]     || "");
+    var rDateRaw  = (r[COL.date]     || "");
+    var rDate     = normalizeDate(rDateRaw);
     var rWorker   = (r[COL.workerName] || "").toLowerCase();
     var rAsset    = (r[COL.assetId]  || "").toLowerCase();
     var rEmail    = (r[COL.workerEmail]||"").toLowerCase();
+    var rGroup    = (r[COL.assetGroup]||"").toLowerCase();
+    var rDesc     = (r[COL.desc]     ||"").toLowerCase();
+    var rNotes    = (r[COL.notes]    ||"").toLowerCase();
+    var rTs       = (r[COL.timestamp]||"").toLowerCase();
 
     if (zone !== "all" && rZone !== zone.toLowerCase()) return false;
     if (building && rBuilding !== building) return false;
-    if (status && rStatus !== status) return false;
+    if (status && rStatus !== status.toLowerCase()) return false;
     if (date && rDate !== date) return false;
     if (search && !rWorker.includes(search) && !rAsset.includes(search) &&
-        !rBuilding.includes(search) && !rEmail.includes(search)) return false;
+        !rBuilding.includes(search) && !rEmail.includes(search) &&
+        !rGroup.includes(search) && !rDesc.includes(search) &&
+        !rNotes.includes(search) && !rTs.includes(search) &&
+        !rZone.includes(search)) return false;
     return true;
   });
 
@@ -828,7 +852,7 @@ function esc(s) {
 /* ── tiles ── */
 function updateTiles() {
   var today = new Date().toLocaleDateString("en-CA"); // YYYY-MM-DD
-  var todayRows = ALL_ROWS.filter(function(r) { return (r[COL.date]||"") === today; });
+  var todayRows = ALL_ROWS.filter(function(r) { return normalizeDate(r[COL.date]||"") === today; });
 
   document.getElementById("t-total").textContent   = ALL_ROWS.length;
   document.getElementById("t-on").textContent      = ALL_ROWS.filter(function(r){ return (r[COL.status]||"") === "On"; }).length;
@@ -877,7 +901,11 @@ function exportCSV() {
   a.click(); URL.revokeObjectURL(url);
 }
 
-/* ── search on enter ── */
+/* ── live filter on change ── */
+["f-building","f-status","f-date"].forEach(function(id) {
+  document.getElementById(id).addEventListener("change", applyFilters);
+});
+document.getElementById("f-search").addEventListener("input", applyFilters);
 document.getElementById("f-search").addEventListener("keydown", function(e) {
   if (e.key === "Enter") applyFilters();
 });
