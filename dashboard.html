@@ -478,7 +478,7 @@ var COL = { timestamp:0, date:1, zone:2, building:3, workerName:4, workerEmail:5
       <div class="tile on"><div class="tile-label">On</div><div class="tile-value" id="t-on">—</div><div class="tile-sub">assets running</div></div>
       <div class="tile alarm"><div class="tile-label">Alarms</div><div class="tile-value" id="t-alarm">—</div><div class="tile-sub">need attention</div></div>
       <div class="tile"><div class="tile-label">Buildings Today</div><div class="tile-value" id="t-buildings">—</div><div class="tile-sub" id="t-date-sub">logged today</div></div>
-      <div class="tile"><div class="tile-label">Workers Today</div><div class="tile-value" id="t-workers">—</div><div class="tile-sub">active today</div></div>
+      <div class="tile"><div class="tile-label">Workers Today</div><div class="tile-value" id="t-workers">—</div><div class="tile-sub">logged today</div></div>
     </div>
 
     <!-- zone filter pills -->
@@ -845,17 +845,24 @@ function esc(s) {
 
 /* ── tiles ── */
 function updateTiles() {
-  var today = new Date().toLocaleDateString("en-CA"); // YYYY-MM-DD
-  var todayRows = ALL_ROWS.filter(function(r) { return normalizeDate(r[COL.date]||"") === today; });
+  var dateFilter = document.getElementById("f-date").value;
+  var label = dateFilter ? dateFilter : "today";
+  var today = new Date().toLocaleDateString("en-CA");
+  var activeDate = dateFilter || today;
 
-  document.getElementById("t-total").textContent   = ALL_ROWS.length;
-  document.getElementById("t-on").textContent      = ALL_ROWS.filter(function(r){ return (r[COL.status]||"") === "On"; }).length;
-  document.getElementById("t-alarm").textContent   = ALL_ROWS.filter(function(r){ return (r[COL.status]||"") === "Alarm"; }).length;
+  var dateRows = ALL_ROWS.filter(function(r) { return normalizeDate(r[COL.date]||"") === activeDate; });
 
-  var bldgsToday = new Set(todayRows.map(function(r){ return r[COL.building]; }));
-  var workersToday = new Set(todayRows.map(function(r){ return r[COL.workerEmail]; }));
-  document.getElementById("t-buildings").textContent = bldgsToday.size;
-  document.getElementById("t-workers").textContent   = workersToday.size;
+  document.getElementById("t-total").textContent   = FILTERED.length;
+  document.getElementById("t-on").textContent      = FILTERED.filter(function(r){ return (r[COL.status]||"") === "On"; }).length;
+  document.getElementById("t-alarm").textContent   = FILTERED.filter(function(r){ return (r[COL.status]||"") === "Alarm"; }).length;
+
+  var bldgs   = new Set(dateRows.map(function(r){ return r[COL.building]; }));
+  var workers = new Set(dateRows.map(function(r){ return r[COL.workerEmail]; }));
+  document.getElementById("t-buildings").textContent = bldgs.size;
+  document.getElementById("t-workers").textContent   = workers.size;
+
+  var sub = dateFilter ? dateFilter : "today";
+  document.getElementById("t-date-sub").textContent = "logged " + sub;
 }
 
 /* ── breakdown bar ── */
