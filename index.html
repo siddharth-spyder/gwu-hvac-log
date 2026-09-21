@@ -595,7 +595,13 @@ function getZone(buildingName) {
                 a.values, a.notes, locationValue
               ];
             });
-            return sheetsAppend(MASTER_SHEET_ID, "Sheet1", rows);
+            /*return sheetsAppend(MASTER_SHEET_ID, "Sheet1", rows);*/
+            console.log("MASTER_SHEET_ID:", MASTER_SHEET_ID);
+console.log("ACCESS_TOKEN:", ACCESS_TOKEN ? "exists" : "MISSING");
+console.log("rows to append:", JSON.stringify(rows));
+return sheetsAppend(MASTER_SHEET_ID, "Sheet1", rows)
+  .then(function(r) { console.log("Append response:", JSON.stringify(r)); })
+  .catch(function(e) { console.error("Append error:", e); });
           });
         });
       });
