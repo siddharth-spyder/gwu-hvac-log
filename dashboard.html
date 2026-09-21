@@ -850,7 +850,7 @@ function updateTiles() {
   var today = new Date().toLocaleDateString("en-CA");
   var activeDate = dateFilter || today;
 
-  var dateRows = ALL_ROWS.filter(function(r) { return normalizeDate(r[COL.date]||"") === activeDate; });
+    var dateRows = FILTERED.filter(function(r) { return normalizeDate(r[COL.date]||"") === activeDate; });
 
   document.getElementById("t-total").textContent   = FILTERED.length;
   document.getElementById("t-on").textContent      = FILTERED.filter(function(r){ return (r[COL.status]||"") === "On"; }).length;
