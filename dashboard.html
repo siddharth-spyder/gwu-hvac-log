@@ -139,6 +139,35 @@ body {
 /* ── main layout ── */
 .main { padding: 24px; max-width: 1400px; margin: 0 auto; }
 
+/* ── charts ── */
+.charts-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+@media (max-width: 700px) { .charts-grid { grid-template-columns: 1fr; } }
+.chart-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: var(--shadow);
+}
+.chart-title {
+  font-family: 'DM Sans', sans-serif;
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text);
+  margin-bottom: 2px;
+}
+.chart-subtitle {
+  font-size: 12px;
+  color: var(--text3);
+  margin-bottom: 16px;
+}
+canvas { width: 100% !important; }
+
 /* ── screens ── */
 #screen-denied { align-items: center; justify-content: center; }
 .signin-card {
@@ -417,6 +446,7 @@ var ALLOWED_EMAILS = [
   "siddharth.saravanan@email.gwu.edu",   /* supervisor 1 */
   "seanj@email.gwu.edu",   /* supervisor 2 */
   "rudy.whittembury@email.gwu.edu",   /* supervisor 3 */
+  "siddharths2709@gmail.com"  /* admin / dev */
 ];
 
 var ZONES = {
@@ -477,8 +507,8 @@ var COL = { timestamp:0, date:1, zone:2, building:3, workerName:4, workerEmail:5
       <div class="tile"><div class="tile-label">Total Logs</div><div class="tile-value" id="t-total">—</div><div class="tile-sub">all time</div></div>
       <div class="tile on"><div class="tile-label">On</div><div class="tile-value" id="t-on">—</div><div class="tile-sub">assets running</div></div>
       <div class="tile alarm"><div class="tile-label">Alarms</div><div class="tile-value" id="t-alarm">—</div><div class="tile-sub">need attention</div></div>
-      <div class="tile"><div class="tile-label">Buildings</div><div class="tile-value" id="t-buildings">—</div><div class="tile-sub" id="t-date-sub">in view</div></div>
-      <div class="tile"><div class="tile-label">Workers</div><div class="tile-value" id="t-workers">—</div><div class="tile-sub">in view</div></div>
+      <div class="tile"><div class="tile-label">Buildings Today</div><div class="tile-value" id="t-buildings">—</div><div class="tile-sub" id="t-date-sub">logged today</div></div>
+      <div class="tile"><div class="tile-label">Workers Today</div><div class="tile-value" id="t-workers">—</div><div class="tile-sub">active today</div></div>
     </div>
 
     <!-- zone filter pills -->
@@ -530,6 +560,33 @@ var COL = { timestamp:0, date:1, zone:2, building:3, workerName:4, workerEmail:5
 
     <!-- status breakdown -->
     <div class="breakdown" id="breakdown"></div>
+
+    <!-- chart tooltip -->
+    <div id="chart-tooltip" style="position:fixed;display:none;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:12px;font-family:Inter,sans-serif;color:var(--text);pointer-events:none;z-index:9999;box-shadow:var(--shadow-md);line-height:1.6;max-width:180px;"></div>
+
+    <!-- charts row -->
+    <div class="charts-grid">
+      <div class="chart-card">
+        <div class="chart-title">Status Breakdown</div>
+        <div class="chart-subtitle">Distribution across current filter</div>
+        <canvas id="chart-status" height="200"></canvas>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Logs Over Time</div>
+        <div class="chart-subtitle">Submissions by date</div>
+        <canvas id="chart-time" height="200"></canvas>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Assets by Zone</div>
+        <div class="chart-subtitle">Log count per zone</div>
+        <canvas id="chart-zone" height="200"></canvas>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Alarms by Building</div>
+        <div class="chart-subtitle">Top buildings with alarm status</div>
+        <canvas id="chart-alarms" height="200"></canvas>
+      </div>
+    </div>
 
     <!-- results bar -->
     <div class="results-bar">
@@ -753,6 +810,7 @@ function applyFilters() {
   renderTable();
   updateTiles();
   updateBreakdown();
+  updateCharts();
 }
 
 function clearFilters() {
@@ -845,24 +903,17 @@ function esc(s) {
 
 /* ── tiles ── */
 function updateTiles() {
-  var dateFilter = document.getElementById("f-date").value;
-  var label = dateFilter ? dateFilter : "today";
-  var today = new Date().toLocaleDateString("en-CA");
-  var activeDate = dateFilter || today;
+  var today = new Date().toLocaleDateString("en-CA"); // YYYY-MM-DD
+  var todayRows = ALL_ROWS.filter(function(r) { return normalizeDate(r[COL.date]||"") === today; });
 
-    var dateRows = FILTERED.filter(function(r) { return normalizeDate(r[COL.date]||"") === activeDate; });
+  document.getElementById("t-total").textContent   = ALL_ROWS.length;
+  document.getElementById("t-on").textContent      = ALL_ROWS.filter(function(r){ return (r[COL.status]||"") === "On"; }).length;
+  document.getElementById("t-alarm").textContent   = ALL_ROWS.filter(function(r){ return (r[COL.status]||"") === "Alarm"; }).length;
 
-   document.getElementById("t-total").textContent   = FILTERED.length;
-  document.getElementById("t-on").textContent      = FILTERED.filter(function(r){ return (r[COL.status]||"") === "On"; }).length;
-  document.getElementById("t-alarm").textContent   = FILTERED.filter(function(r){ return (r[COL.status]||"") === "Alarm"; }).length;
-
-  var bldgs   = new Set(FILTERED.map(function(r){ return r[COL.building]; }));
-  var workers = new Set(FILTERED.map(function(r){ return r[COL.workerEmail]; }));
-  document.getElementById("t-buildings").textContent = bldgs.size;
-  document.getElementById("t-workers").textContent   = workers.size;
-
-  var sub = dateFilter ? dateFilter : "all dates";
-  document.getElementById("t-date-sub").textContent = "in view";
+  var bldgsToday = new Set(todayRows.map(function(r){ return r[COL.building]; }));
+  var workersToday = new Set(todayRows.map(function(r){ return r[COL.workerEmail]; }));
+  document.getElementById("t-buildings").textContent = bldgsToday.size;
+  document.getElementById("t-workers").textContent   = workersToday.size;
 }
 
 /* ── breakdown bar ── */
@@ -902,6 +953,363 @@ function exportCSV() {
   a.click(); URL.revokeObjectURL(url);
 }
 
+/* ── charts ── */
+var STATUS_COLORS = {
+  "On":"#16a34a","Off":"#ca8a04","Alarm":"#dc2626",
+  "Loto":"#ea580c","Out of Service":"#6b7280","N/A":"#9ca3af"
+};
+var ZONE_COLORS = {"Zone 1":"#002147","Zone 2":"#1a6b3c","Zone 3":"#92400E","Zone 4":"#5B21B6"};
+
+function isDark() {
+  if (document.documentElement.dataset.theme === "dark") return true;
+  if (document.documentElement.dataset.theme === "light") return false;
+  return window.matchMedia("(prefers-color-scheme: dark)").matches;
+}
+function chartColors() {
+  return isDark()
+    ? { text:"#8d96a7", grid:"rgba(255,255,255,0.07)", bg:"#161b22" }
+    : { text:"#4b5263", grid:"rgba(0,0,0,0.07)",       bg:"#ffffff" };
+}
+
+var CHART_HITS = {}; // canvasId -> [{type, ...geometry, label, value}]
+
+function showChartTooltip(e, html) {
+  var tt = document.getElementById("chart-tooltip");
+  tt.innerHTML = html;
+  tt.style.display = "block";
+  var vw = window.innerWidth, vh = window.innerHeight;
+  var tw = tt.offsetWidth, th = tt.offsetHeight;
+  var x = e.clientX + 14, y = e.clientY - th/2;
+  if (x + tw > vw - 8) x = e.clientX - tw - 14;
+  if (y < 8) y = 8;
+  if (y + th > vh - 8) y = vh - th - 8;
+  tt.style.left = x + "px";
+  tt.style.top  = y + "px";
+}
+function hideChartTooltip() {
+  document.getElementById("chart-tooltip").style.display = "none";
+}
+
+function attachChartHover(canvasId) {
+  var c = document.getElementById(canvasId);
+  if (!c || c._hoverBound) return;
+  c._hoverBound = true;
+  c.style.cursor = "crosshair";
+  c.addEventListener("mousemove", function(e) {
+    var hits = CHART_HITS[canvasId];
+    if (!hits || !hits.length) return;
+    var rect = c.getBoundingClientRect();
+    var mx = e.clientX - rect.left;
+    var my = e.clientY - rect.top;
+    var found = null;
+    for (var i = 0; i < hits.length; i++) {
+      var h = hits[i];
+      if (h.type === "arc") {
+        var dx = mx - h.cx, dy = my - h.cy;
+        var dist = Math.sqrt(dx*dx + dy*dy);
+        if (dist >= h.ir && dist <= h.r) {
+          var ang = Math.atan2(dy, dx);
+          if (ang < 0) ang += Math.PI * 2;
+          var a0 = h.a0, a1 = h.a1;
+          // normalize angles to [0, 2π)
+          while (a0 < 0) a0 += Math.PI*2;
+          while (a1 < 0) a1 += Math.PI*2;
+          if (a0 <= a1) { if (ang >= a0 && ang <= a1) { found = h; break; } }
+          else { if (ang >= a0 || ang <= a1) { found = h; break; } }
+        }
+      } else if (h.type === "bar") {
+        if (mx >= h.x && mx <= h.x+h.w && my >= h.y && my <= h.y+h.h) { found = h; break; }
+      } else if (h.type === "point") {
+        var dx2 = mx - h.x, dy2 = my - h.y;
+        if (Math.sqrt(dx2*dx2 + dy2*dy2) <= h.r) { found = h; break; }
+      } else if (h.type === "vline") {
+        // vertical snapping zone for line chart
+        if (mx >= h.x - h.snap && mx <= h.x + h.snap) { found = h; break; }
+      }
+    }
+    if (found) {
+      showChartTooltip(e, found.tip);
+      c.style.cursor = "pointer";
+    } else {
+      hideChartTooltip();
+      c.style.cursor = "crosshair";
+    }
+  });
+  c.addEventListener("mouseleave", function() {
+    hideChartTooltip();
+    c.style.cursor = "crosshair";
+  });
+}
+
+function drawDonut(canvasId, data) {
+  var c = document.getElementById(canvasId);
+  if (!c) return;
+  var dpr = window.devicePixelRatio || 1;
+  c.width  = c.offsetWidth  * dpr;
+  c.height = 200 * dpr;
+  var ctx = c.getContext("2d");
+  ctx.scale(dpr, dpr);
+  var W = c.offsetWidth, H = 200;
+  ctx.clearRect(0,0,W,H);
+  var cc = chartColors();
+
+  var total = data.reduce(function(s,d){ return s+d.value; }, 0);
+  if (!total) { ctx.fillStyle=cc.text; ctx.font="13px Inter,sans-serif"; ctx.textAlign="center"; ctx.fillText("No data",W/2,H/2); return; }
+
+  var cx = W * 0.38, cy = H/2, r = Math.min(cx, cy) - 10, ir = r * 0.58;
+  var angle = -Math.PI/2;
+  var hits = [];
+  data.forEach(function(d) {
+    if (!d.value) return;
+    var sweep = (d.value/total) * Math.PI * 2;
+    ctx.beginPath(); ctx.moveTo(cx,cy);
+    ctx.arc(cx,cy,r,angle,angle+sweep);
+    ctx.closePath(); ctx.fillStyle=d.color; ctx.fill();
+    var pct = ((d.value/total)*100).toFixed(1);
+    hits.push({ type:"arc", cx:cx, cy:cy, r:r, ir:ir,
+      a0: ((angle % (Math.PI*2)) + Math.PI*2) % (Math.PI*2),
+      a1: (((angle+sweep) % (Math.PI*2)) + Math.PI*2) % (Math.PI*2),
+      tip: '<strong style="color:'+d.color+'">'+d.label+'</strong><br>'+d.value+' logs &nbsp;·&nbsp; '+pct+'%'
+    });
+    angle += sweep;
+  });
+  CHART_HITS[canvasId] = hits;
+  // hole
+  ctx.beginPath(); ctx.arc(cx,cy,ir,0,Math.PI*2);
+  ctx.fillStyle = cc.bg; ctx.fill();
+  // center label
+  ctx.fillStyle=cc.text; ctx.font="bold 22px DM Sans,sans-serif"; ctx.textAlign="center"; ctx.textBaseline="middle";
+  ctx.fillText(total, cx, cy-8);
+  ctx.font="11px Inter,sans-serif"; ctx.fillText("total", cx, cy+10);
+
+  // legend
+  var lx = W*0.68, ly = H/2 - (data.length*18)/2;
+  data.forEach(function(d,i) {
+    var y = ly + i*18;
+    ctx.fillStyle=d.color; ctx.fillRect(lx,y,10,10);
+    ctx.fillStyle=cc.text; ctx.font="11px Inter,sans-serif"; ctx.textAlign="left"; ctx.textBaseline="top";
+    ctx.fillText(d.label + " (" + d.value + ")", lx+14, y);
+  });
+  attachChartHover(canvasId);
+}
+
+function drawBar(canvasId, labels, values, colors, horizontal) {
+  var c = document.getElementById(canvasId);
+  if (!c) return;
+  var dpr = window.devicePixelRatio || 1;
+  c.width  = c.offsetWidth * dpr;
+  c.height = 200 * dpr;
+  var ctx = c.getContext("2d");
+  ctx.scale(dpr, dpr);
+  var W = c.offsetWidth, H = 200;
+  ctx.clearRect(0,0,W,H);
+  var cc = chartColors();
+
+  if (!labels.length) { ctx.fillStyle=cc.text; ctx.font="13px Inter,sans-serif"; ctx.textAlign="center"; ctx.fillText("No data",W/2,H/2); return; }
+
+  var pad = { top:16, right:16, bottom: horizontal?8:40, left: horizontal?120:40 };
+  var chartW = W - pad.left - pad.right;
+  var chartH = H - pad.top  - pad.bottom;
+  var max = Math.max.apply(null, values) || 1;
+  var hits = [];
+
+  if (horizontal) {
+    var barH = Math.min(22, chartH / labels.length - 4);
+    var gap   = (chartH - barH * labels.length) / (labels.length + 1);
+    labels.forEach(function(lbl, i) {
+      var barW = (values[i] / max) * chartW;
+      var y    = pad.top + gap + i * (barH + gap);
+      var col  = Array.isArray(colors) ? colors[i % colors.length] : colors;
+      ctx.fillStyle = col;
+      ctx.beginPath();
+      roundRect(ctx, pad.left, y, Math.max(barW,2), barH, 3);
+      ctx.fill();
+      hits.push({ type:"bar", x:pad.left, y:y, w:Math.max(barW,2), h:barH,
+        tip: '<strong>'+lbl+'</strong><br>'+values[i]+' alarm'+(values[i]!==1?'s':'') });
+      // label
+      ctx.fillStyle = cc.text; ctx.font = "11px Inter,sans-serif";
+      ctx.textAlign = "right"; ctx.textBaseline = "middle";
+      var shortLbl = lbl.length > 18 ? lbl.slice(0,17)+"…" : lbl;
+      ctx.fillText(shortLbl, pad.left - 6, y + barH/2);
+      // value
+      ctx.textAlign = "left";
+      ctx.fillText(values[i], pad.left + barW + 4, y + barH/2);
+    });
+  } else {
+    var barW2 = Math.min(40, chartW / labels.length - 4);
+    var gap2  = (chartW - barW2 * labels.length) / (labels.length + 1);
+    // grid lines
+    [0.25,0.5,0.75,1].forEach(function(f) {
+      var y = pad.top + chartH - f*chartH;
+      ctx.strokeStyle = cc.grid; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(pad.left,y); ctx.lineTo(pad.left+chartW,y); ctx.stroke();
+    });
+    labels.forEach(function(lbl, i) {
+      var barH2 = (values[i] / max) * chartH;
+      var x     = pad.left + gap2 + i*(barW2+gap2);
+      var y     = pad.top + chartH - barH2;
+      var col   = Array.isArray(colors) ? colors[i % colors.length] : colors;
+      ctx.fillStyle = col;
+      ctx.beginPath();
+      roundRect(ctx, x, y, barW2, Math.max(barH2,2), 3);
+      ctx.fill();
+      hits.push({ type:"bar", x:x, y:y, w:barW2, h:Math.max(barH2,2),
+        tip: '<strong>'+lbl+'</strong><br>'+values[i]+' log'+(values[i]!==1?'s':'') });
+      // x label
+      ctx.fillStyle = cc.text; ctx.font = "10px Inter,sans-serif";
+      ctx.textAlign = "center"; ctx.textBaseline = "top";
+      var shortLbl2 = lbl.length > 8 ? lbl.slice(0,7)+"…" : lbl;
+      ctx.fillText(shortLbl2, x + barW2/2, pad.top + chartH + 4);
+      // value on top
+      if (values[i]) {
+        ctx.textBaseline = "bottom";
+        ctx.fillText(values[i], x + barW2/2, y - 1);
+      }
+    });
+  }
+  CHART_HITS[canvasId] = hits;
+  attachChartHover(canvasId);
+}
+
+function drawLine(canvasId, labels, values) {
+  var c = document.getElementById(canvasId);
+  if (!c) return;
+  var dpr = window.devicePixelRatio || 1;
+  c.width  = c.offsetWidth * dpr;
+  c.height = 200 * dpr;
+  var ctx = c.getContext("2d");
+  ctx.scale(dpr, dpr);
+  var W = c.offsetWidth, H = 200;
+  ctx.clearRect(0,0,W,H);
+  var cc = chartColors();
+
+  if (!labels.length) { ctx.fillStyle=cc.text; ctx.font="13px Inter,sans-serif"; ctx.textAlign="center"; ctx.fillText("No data",W/2,H/2); return; }
+
+  var pad = {top:20, right:16, bottom:36, left:36};
+  var chartW = W - pad.left - pad.right;
+  var chartH = H - pad.top  - pad.bottom;
+  var max = Math.max.apply(null, values) || 1;
+
+  // grid
+  [0.25,0.5,0.75,1].forEach(function(f) {
+    var y = pad.top + chartH - f*chartH;
+    ctx.strokeStyle=cc.grid; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(pad.left,y); ctx.lineTo(pad.left+chartW,y); ctx.stroke();
+    ctx.fillStyle=cc.text; ctx.font="9px Inter,sans-serif"; ctx.textAlign="right"; ctx.textBaseline="middle";
+    ctx.fillText(Math.round(f*max), pad.left-4, y);
+  });
+
+  // area fill
+  ctx.beginPath();
+  labels.forEach(function(l,i) {
+    var x = pad.left + (i/(labels.length-1||1))*chartW;
+    var y = pad.top + chartH - (values[i]/max)*chartH;
+    i===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+  });
+  ctx.lineTo(pad.left+chartW, pad.top+chartH);
+  ctx.lineTo(pad.left, pad.top+chartH);
+  ctx.closePath();
+  var grad = ctx.createLinearGradient(0,pad.top,0,pad.top+chartH);
+  grad.addColorStop(0,"rgba(0,33,71,0.25)");
+  grad.addColorStop(1,"rgba(0,33,71,0.02)");
+  ctx.fillStyle=grad; ctx.fill();
+
+  // line
+  ctx.beginPath();
+  labels.forEach(function(l,i) {
+    var x = pad.left + (i/(labels.length-1||1))*chartW;
+    var y = pad.top + chartH - (values[i]/max)*chartH;
+    i===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+  });
+  ctx.strokeStyle="#002147"; ctx.lineWidth=2.5; ctx.lineJoin="round"; ctx.stroke();
+
+  // dots + hit regions
+  var hits = [];
+  var snapZone = labels.length > 1 ? (chartW / (labels.length-1)) / 2 : chartW;
+  labels.forEach(function(l,i) {
+    var x = pad.left + (i/(labels.length-1||1))*chartW;
+    var y = pad.top + chartH - (values[i]/max)*chartH;
+    ctx.beginPath(); ctx.arc(x,y,3.5,0,Math.PI*2);
+    ctx.fillStyle="#002147"; ctx.fill();
+    ctx.beginPath(); ctx.arc(x,y,2,0,Math.PI*2);
+    ctx.fillStyle="#fff"; ctx.fill();
+    var short = l.slice(5);
+    hits.push({ type:"vline", x:x, y:y, r:8, snap:snapZone,
+      tip: '<strong>'+short+'</strong><br>'+values[i]+' log'+(values[i]!==1?'s':'') });
+  });
+  CHART_HITS[canvasId] = hits;
+
+  // x labels — show every Nth to avoid crowding
+  var step = Math.ceil(labels.length / 8);
+  labels.forEach(function(l,i) {
+    if (i % step !== 0 && i !== labels.length-1) return;
+    var x = pad.left + (i/(labels.length-1||1))*chartW;
+    ctx.fillStyle=cc.text; ctx.font="9px Inter,sans-serif";
+    ctx.textAlign="center"; ctx.textBaseline="top";
+    var short = l.slice(5); // strip year, show MM-DD
+    ctx.fillText(short, x, pad.top+chartH+5);
+  });
+  attachChartHover(canvasId);
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  r = Math.min(r, w/2, h/2);
+  ctx.moveTo(x+r,y); ctx.lineTo(x+w-r,y);
+  ctx.arcTo(x+w,y,x+w,y+r,r); ctx.lineTo(x+w,y+h-r);
+  ctx.arcTo(x+w,y+h,x+w-r,y+h,r); ctx.lineTo(x+r,y+h);
+  ctx.arcTo(x,y+h,x,y+h-r,r); ctx.lineTo(x,y+r);
+  ctx.arcTo(x,y,x+r,y,r); ctx.closePath();
+}
+
+function updateCharts() {
+  // 1. Status donut
+  var statusCounts = {"On":0,"Off":0,"Alarm":0,"Loto":0,"Out of Service":0,"N/A":0};
+  FILTERED.forEach(function(r) {
+    var s = r[COL.status]||"N/A";
+    if (statusCounts[s]!==undefined) statusCounts[s]++; else statusCounts["N/A"]++;
+  });
+  var donutData = Object.keys(statusCounts)
+    .filter(function(k){ return statusCounts[k]>0; })
+    .map(function(k){ return {label:k, value:statusCounts[k], color:STATUS_COLORS[k]}; });
+  drawDonut("chart-status", donutData);
+
+  // 2. Logs over time
+  var timeCounts = {};
+  FILTERED.forEach(function(r) {
+    var d = normalizeDate(r[COL.date]||"");
+    if (d) timeCounts[d] = (timeCounts[d]||0) + 1;
+  });
+  var timeDates = Object.keys(timeCounts).sort();
+  drawLine("chart-time", timeDates, timeDates.map(function(d){ return timeCounts[d]; }));
+
+  // 3. Assets by zone
+  var zoneCounts = {"Zone 1":0,"Zone 2":0,"Zone 3":0,"Zone 4":0};
+  FILTERED.forEach(function(r) {
+    var z = r[COL.zone]||"";
+    if (zoneCounts[z]!==undefined) zoneCounts[z]++;
+  });
+  var zoneLabels = Object.keys(zoneCounts);
+  drawBar("chart-zone", zoneLabels,
+    zoneLabels.map(function(z){ return zoneCounts[z]; }),
+    zoneLabels.map(function(z){ return ZONE_COLORS[z]||"#888"; }),
+    false);
+
+  // 4. Alarms by building (top 8)
+  var alarmCounts = {};
+  FILTERED.forEach(function(r) {
+    if ((r[COL.status]||"") === "Alarm") {
+      var b = r[COL.building]||"Unknown";
+      alarmCounts[b] = (alarmCounts[b]||0) + 1;
+    }
+  });
+  var alarmBuildings = Object.keys(alarmCounts)
+    .sort(function(a,b){ return alarmCounts[b]-alarmCounts[a]; })
+    .slice(0,8);
+  drawBar("chart-alarms", alarmBuildings,
+    alarmBuildings.map(function(b){ return alarmCounts[b]; }),
+    "#dc2626", true);
+}
+
 /* ── live filter on change ── */
 ["f-building","f-status","f-date"].forEach(function(id) {
   document.getElementById(id).addEventListener("change", applyFilters);
@@ -910,4 +1318,5 @@ document.getElementById("f-search").addEventListener("input", applyFilters);
 document.getElementById("f-search").addEventListener("keydown", function(e) {
   if (e.key === "Enter") applyFilters();
 });
+window.addEventListener("resize", function() { if (FILTERED.length) updateCharts(); });
 </script>
