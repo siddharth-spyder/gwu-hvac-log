@@ -335,24 +335,26 @@ canvas { width: 100% !important; }
   box-shadow: var(--shadow);
   overflow: hidden;
 }
-.table-scroll { overflow-x: auto; }
+.table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 table {
   width: 100%; border-collapse: collapse;
-  font-size: 13px;
+  table-layout: fixed;
+  font-size: 12px;
 }
 thead th {
   background: var(--surface2);
-  padding: 10px 14px;
+  padding: 8px 10px;
   text-align: left;
-  font-size: 11px; font-weight: 600;
+  font-size: 10px; font-weight: 600;
   text-transform: uppercase; letter-spacing: .05em;
   color: var(--text3);
   border-bottom: 1px solid var(--border);
-  white-space: nowrap;
+  white-space: normal;
+  word-break: break-word;
   cursor: pointer; user-select: none;
 }
 thead th:hover { color: var(--text); }
-thead th .sort-arrow { margin-left: 4px; opacity: .4; }
+thead th .sort-arrow { margin-left: 2px; opacity: .4; }
 thead th.sorted .sort-arrow { opacity: 1; color: var(--navy); }
 tbody tr {
   border-bottom: 1px solid var(--border);
@@ -360,8 +362,8 @@ tbody tr {
 }
 tbody tr:last-child { border-bottom: none; }
 tbody tr:hover { background: var(--surface2); }
-tbody td { padding: 10px 14px; color: var(--text); white-space: nowrap; }
-tbody td.wrap { white-space: normal; max-width: 200px; }
+tbody td { padding: 8px 10px; color: var(--text); white-space: normal; word-break: break-word; overflow-wrap: break-word; }
+tbody td.wrap { white-space: normal; }
 
 .zone-tag {
   display: inline-flex; align-items: center; gap: 5px;
@@ -446,6 +448,7 @@ var ALLOWED_EMAILS = [
   "siddharth.saravanan@email.gwu.edu",   /* supervisor 1 */
   "seanj@email.gwu.edu",   /* supervisor 2 */
   "rudy.whittembury@email.gwu.edu",   /* supervisor 3 */
+  "siddharths2709@gmail.com"  /* admin / dev */
 ];
 
 var ZONES = {
@@ -605,6 +608,19 @@ var COL = { timestamp:0, date:1, zone:2, building:3, workerName:4, workerEmail:5
       <div id="table-area" hidden>
         <div class="table-scroll">
           <table>
+            <colgroup>
+              <col style="width:10%">  <!-- Timestamp -->
+              <col style="width:7%">   <!-- Zone -->
+              <col style="width:8%">   <!-- Building -->
+              <col style="width:9%">   <!-- Worker -->
+              <col style="width:8%">   <!-- Asset ID -->
+              <col style="width:7%">   <!-- Group -->
+              <col style="width:14%">  <!-- Description -->
+              <col style="width:7%">   <!-- Status -->
+              <col style="width:8%">   <!-- Values -->
+              <col style="width:10%">  <!-- Notes -->
+              <col style="width:12%">  <!-- Location -->
+            </colgroup>
             <thead>
               <tr>
                 <th onclick="sortBy(0)">Timestamp <span class="sort-arrow">↕</span></th>
