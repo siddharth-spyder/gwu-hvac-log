@@ -365,6 +365,15 @@ tbody tr:hover { background: var(--surface2); }
 tbody td { padding: 8px 10px; color: var(--text); white-space: normal; word-break: break-word; overflow-wrap: break-word; }
 tbody td.wrap { white-space: normal; }
 
+.loc-link {
+  color: var(--navy);
+  text-decoration: none;
+  font-size: 11px;
+  white-space: normal;
+  word-break: break-all;
+}
+.loc-link:hover { text-decoration: underline; }
+
 .zone-tag {
   display: inline-flex; align-items: center; gap: 5px;
   font-size: 11px; font-weight: 600;
@@ -870,6 +879,32 @@ function statusClass(s) {
   return s;
 }
 
+function locationCell(loc) {
+  var q = encodeURIComponent(loc.trim());
+  var gmaps = "https://www.google.com/maps/search/?api=1&query=" + q;
+  var amaps = "maps://maps.apple.com/?q=" + q;
+  // On mobile: show a prompt to pick Google Maps or Apple Maps
+  // On desktop: open Google Maps directly
+  var isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+  if (isMobile) {
+    var safeGmaps = gmaps.replace(/'/g, "\\'");
+    var safeAmaps = amaps.replace(/'/g, "\\'");
+    var safeLoc   = esc(loc);
+    return '<a href="#" class="loc-link" onclick="openMapChoice(\'' + safeGmaps + '\',\'' + safeAmaps + '\');return false;" title="Open in Maps">📍 ' + safeLoc + '</a>';
+  } else {
+    return '<a href="' + gmaps + '" target="_blank" rel="noopener" class="loc-link" title="Open in Google Maps">📍 ' + esc(loc) + '</a>';
+  }
+}
+
+function openMapChoice(gmaps, amaps) {
+  var choice = confirm("Open in Maps\n\nOK → Google Maps\nCancel → Apple Maps");
+  if (choice) {
+    window.open(gmaps, "_blank");
+  } else {
+    window.location.href = amaps;
+  }
+}
+
 function renderTable() {
   var tbody = document.getElementById("table-body");
   var noData = document.getElementById("no-data");
@@ -909,7 +944,7 @@ function renderTable() {
       '<td><span class="status-pill ' + sc + '">' + esc(status||"N/A") + "</span></td>" +
       "<td>" + esc(values) + "</td>" +
       '<td class="wrap">' + esc(notes) + "</td>" +
-      "<td>" + esc(location) + "</td>" +
+      "<td>" + (location ? locationCell(location) : "") + "</td>" +
       "</tr>";
   });
   tbody.innerHTML = html;
