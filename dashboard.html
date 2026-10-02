@@ -882,27 +882,7 @@ function statusClass(s) {
 function locationCell(loc) {
   var q = encodeURIComponent(loc.trim());
   var gmaps = "https://www.google.com/maps/search/?api=1&query=" + q;
-  var amaps = "maps://maps.apple.com/?q=" + q;
-  // On mobile: show a prompt to pick Google Maps or Apple Maps
-  // On desktop: open Google Maps directly
-  var isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-  if (isMobile) {
-    var safeGmaps = gmaps.replace(/'/g, "\\'");
-    var safeAmaps = amaps.replace(/'/g, "\\'");
-    var safeLoc   = esc(loc);
-    return '<a href="#" class="loc-link" onclick="openMapChoice(\'' + safeGmaps + '\',\'' + safeAmaps + '\');return false;" title="Open in Maps">📍 ' + safeLoc + '</a>';
-  } else {
-    return '<a href="' + gmaps + '" target="_blank" rel="noopener" class="loc-link" title="Open in Google Maps">📍 ' + esc(loc) + '</a>';
-  }
-}
-
-function openMapChoice(gmaps, amaps) {
-  var choice = confirm("Open in Maps\n\nOK → Google Maps\nCancel → Apple Maps");
-  if (choice) {
-    window.open(gmaps, "_blank");
-  } else {
-    window.location.href = amaps;
-  }
+  return '<a href="' + gmaps + '" target="_blank" rel="noopener" class="loc-link" title="Open in Google Maps">📍 ' + esc(loc) + '</a>';
 }
 
 function renderTable() {
